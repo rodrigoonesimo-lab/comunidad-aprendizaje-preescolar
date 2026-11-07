@@ -1,0 +1,276 @@
+-- =====================================================================
+-- Comunidad de Aprendizaje Preescolar — base de datos (Supabase)
+-- Elaborado por: M. en E. N. y A. Rodrigo Onesimo Pérez Rios
+--
+-- Cómo usarlo: en Supabase abre "SQL Editor" > "New query", pega TODO
+-- este archivo y presiona "Run". Se puede ejecutar más de una vez.
+-- =====================================================================
+
+-- ---------- Perfiles (una fila por cada cuenta) ----------
+create table if not exists public.profiles (
+  id uuid primary key references auth.users on delete cascade,
+  email text not null,
+  nombre text default '',
+  grado text default '',
+  role text not null default 'docente' check (role in ('docente','admin')),
+  stripe_customer_id text,
+  stripe_subscription_id text,
+  plan text check (plan in ('mensual','anual')),
+  sub_status text,                       -- trialing, active, past_due, canceled, incomplete...
+  current_period_end timestamptz,
+  trial_end timestamptz,
+  cancel_at_period_end boolean not null default false,
+  trial_used boolean not null default false,
+  courtesy_until timestamptz,
+  blocked boolean not null default false,
+  block_reason text default '',
+  active_session uuid,
+  favoritos uuid[] not null default '{}',
+  avisos_cerrados uuid[] not null default '{}',
+  created_at timestamptz not null default now()
+);
+
+-- Crear el perfil automáticamente al registrarse.
+-- El correo del administrador recibe el rol "admin".
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.profiles (id, email, nombre, grado, role)
+  values (
+    new.id,
+    lower(new.email),
+    coalesce(new.raw_user_meta_data->>'nombre', ''),
+    coalesce(new.raw_user_meta_data->>'grado', ''),
+    case when lower(new.email) = 'rodrigoonesimo@gmail.com' then 'admin' else 'docente' end
+  )
+  on conflict (id) do nothing;
+  return new;
+end $$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+-- ---------- Funciones de apoyo ----------
+create or replace function public.is_admin()
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.profiles where id = auth.uid() and role = 'admin' and not blocked);
+$$;
+
+create or replace function public.has_access(uid uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.profiles p
+    where p.id = uid and not p.blocked and (
+      p.role = 'admin'
+      or (p.sub_status in ('trialing','active','past_due') and coalesce(greatest(p.current_period_end, p.trial_end), now()) > now())
+      or (p.courtesy_until is not null and p.courtesy_until > now())
+    )
+  );
+$$;
+
+-- ---------- Recursos del catálogo ----------
+create table if not exists public.resources (
+  id uuid primary key default gen_random_uuid(),
+  titulo text not null,
+  descripcion text not null default '',
+  categoria text not null,
+  campo text not null default '',
+  grados text[] not null default '{}',
+  formato text not null default 'PDF',
+  acceso text not null default 'suscripcion' check (acceso in ('gratis','suscripcion')),
+  nuevo_mes boolean not null default false,
+  estado text not null default 'borrador' check (estado in ('borrador','programado','publicado','oculto')),
+  fecha_pub date,
+  publicado_at timestamptz,
+  file_path text,
+  file_name text,
+  descargas integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create or replace function public.resource_visible(r public.resources)
+returns boolean language sql stable as $$
+  select r.estado = 'publicado' or (r.estado = 'programado' and r.fecha_pub is not null and r.fecha_pub <= (now() at time zone 'America/Mexico_City')::date);
+$$;
+
+-- ---------- Descargas, pagos, avisos y demás ----------
+create table if not exists public.descargas (
+  id bigint generated always as identity primary key,
+  user_id uuid references public.profiles on delete cascade,
+  resource_id uuid references public.resources on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.payments (
+  id bigint generated always as identity primary key,
+  user_id uuid references public.profiles on delete set null,
+  monto numeric(10,2) not null,
+  concepto text not null default '',
+  stripe_invoice_id text unique,
+  fecha timestamptz not null default now()
+);
+
+create table if not exists public.cortesias (
+  id bigint generated always as identity primary key,
+  user_id uuid references public.profiles on delete cascade,
+  dias integer not null,
+  motivo text not null default '',
+  fecha timestamptz not null default now()
+);
+
+create table if not exists public.avisos (
+  id uuid primary key default gen_random_uuid(),
+  titulo text not null,
+  mensaje text not null,
+  destino text not null default 'Todas las suscriptoras',
+  panel boolean not null default true,
+  correo boolean not null default false,
+  fecha timestamptz not null default now()
+);
+
+create table if not exists public.contenidos (
+  id uuid primary key default gen_random_uuid(),
+  campo text not null,
+  contenido text not null,
+  pda1 text not null default '',
+  pda2 text not null default '',
+  pda3 text not null default '',
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.plantillas (
+  id uuid primary key default gen_random_uuid(),
+  nombre text not null,
+  tipo text not null default 'Lista de cotejo',
+  criterios text not null default '',
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.settings (
+  id integer primary key default 1 check (id = 1),
+  data jsonb not null
+);
+
+insert into public.settings (id, data) values (1, '{
+  "hero": "Planeación, evaluación y material para tu aula, listos en minutos.",
+  "precioMensual": 89,
+  "precioAnual": 899,
+  "whatsapp": "",
+  "redes": {"Facebook": "", "Instagram": "", "TikTok": "", "YouTube": ""},
+  "faq": [
+    ["¿Cómo funciona la prueba gratis?", "Creas tu cuenta, eliges tu plan y registras tu tarjeta. Durante 7 días usas todo sin costo. Si no cancelas antes de que termine la prueba, se hace el primer cobro de tu plan."],
+    ["¿Cómo cancelo mi suscripción?", "Desde la sección Mi suscripción, en cualquier momento. Conservas el acceso hasta que termine el periodo que ya pagaste; no hay reembolsos."],
+    ["¿Qué formas de pago aceptan?", "Solo tarjeta de crédito o débito."],
+    ["¿La suscripción se renueva sola?", "Sí. Tu plan se renueva automáticamente con tu tarjeta al terminar el periodo. Si no quieres renovarlo, cancélalo antes desde Mi suscripción."],
+    ["¿Cuándo empieza y termina el plan anual?", "Son 12 meses contados desde tu primer cobro, sin importar la fecha del ciclo escolar."],
+    ["¿Puedo compartir mi cuenta?", "No. La cuenta es personal y se usa en un dispositivo a la vez: si inicias sesión en otro, la sesión anterior se cierra."]
+  ]
+}'::jsonb) on conflict (id) do nothing;
+
+-- ---------- Reglas de seguridad (RLS) ----------
+alter table public.profiles   enable row level security;
+alter table public.resources  enable row level security;
+alter table public.descargas  enable row level security;
+alter table public.payments   enable row level security;
+alter table public.cortesias  enable row level security;
+alter table public.avisos     enable row level security;
+alter table public.contenidos enable row level security;
+alter table public.plantillas enable row level security;
+alter table public.settings   enable row level security;
+
+-- Perfiles: cada quien ve el suyo; el administrador ve todos.
+drop policy if exists profiles_select on public.profiles;
+create policy profiles_select on public.profiles for select to authenticated using (id = auth.uid() or public.is_admin());
+drop policy if exists profiles_update_own on public.profiles;
+create policy profiles_update_own on public.profiles for update to authenticated using (id = auth.uid()) with check (id = auth.uid());
+-- La docente solo puede cambiar estas columnas de su propio perfil:
+revoke update on public.profiles from authenticated, anon;
+grant update (nombre, grado, favoritos, avisos_cerrados, active_session) on public.profiles to authenticated;
+
+-- Recursos: todos ven los publicados; el administrador ve y edita todo.
+drop policy if exists resources_select on public.resources;
+create policy resources_select on public.resources for select to anon, authenticated using (public.resource_visible(resources) or public.is_admin());
+drop policy if exists resources_admin on public.resources;
+create policy resources_admin on public.resources for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists descargas_select on public.descargas;
+create policy descargas_select on public.descargas for select to authenticated using (user_id = auth.uid() or public.is_admin());
+
+drop policy if exists payments_select on public.payments;
+create policy payments_select on public.payments for select to authenticated using (user_id = auth.uid() or public.is_admin());
+
+drop policy if exists cortesias_select on public.cortesias;
+create policy cortesias_select on public.cortesias for select to authenticated using (public.is_admin());
+
+drop policy if exists avisos_select on public.avisos;
+create policy avisos_select on public.avisos for select to authenticated using (true);
+drop policy if exists avisos_admin on public.avisos;
+create policy avisos_admin on public.avisos for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists contenidos_select on public.contenidos;
+create policy contenidos_select on public.contenidos for select to authenticated using (true);
+drop policy if exists contenidos_admin on public.contenidos;
+create policy contenidos_admin on public.contenidos for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists plantillas_select on public.plantillas;
+create policy plantillas_select on public.plantillas for select to authenticated using (true);
+drop policy if exists plantillas_admin on public.plantillas;
+create policy plantillas_admin on public.plantillas for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists settings_select on public.settings;
+create policy settings_select on public.settings for select to anon, authenticated using (true);
+drop policy if exists settings_admin on public.settings;
+create policy settings_admin on public.settings for update to authenticated using (public.is_admin()) with check (public.is_admin());
+
+-- ---------- Acciones protegidas ----------
+-- Registrar una descarga (solo si el recurso es gratis o la docente tiene acceso).
+create or replace function public.registrar_descarga(rid uuid)
+returns boolean language plpgsql security definer set search_path = public as $$
+declare r public.resources;
+begin
+  select * into r from public.resources where id = rid;
+  if not found or not public.resource_visible(r) then return false; end if;
+  if r.acceso <> 'gratis' and not public.has_access(auth.uid()) then return false; end if;
+  update public.resources set descargas = descargas + 1 where id = rid;
+  if auth.uid() is not null then
+    insert into public.descargas (user_id, resource_id) values (auth.uid(), rid);
+  end if;
+  return true;
+end $$;
+grant execute on function public.registrar_descarga(uuid) to anon, authenticated;
+
+-- Bloquear o desbloquear una cuenta (solo administrador).
+create or replace function public.admin_set_block(uid uuid, bloquear boolean, motivo text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_admin() then raise exception 'Solo el administrador puede hacer esto'; end if;
+  update public.profiles
+     set blocked = bloquear,
+         block_reason = case when bloquear then coalesce(motivo, '') else '' end,
+         active_session = case when bloquear then gen_random_uuid() else active_session end
+   where id = uid and role <> 'admin';
+end $$;
+grant execute on function public.admin_set_block(uuid, boolean, text) to authenticated;
+
+-- ---------- Archivos (Storage) ----------
+insert into storage.buckets (id, name, public) values ('recursos', 'recursos', false)
+on conflict (id) do nothing;
+
+drop policy if exists recursos_leer on storage.objects;
+create policy recursos_leer on storage.objects for select to anon, authenticated using (
+  bucket_id = 'recursos' and (
+    public.is_admin() or exists (
+      select 1 from public.resources r
+      where r.file_path = storage.objects.name
+        and public.resource_visible(r)
+        and (r.acceso = 'gratis' or public.has_access(auth.uid()))
+    )
+  )
+);
+drop policy if exists recursos_subir on storage.objects;
+create policy recursos_subir on storage.objects for insert to authenticated with check (bucket_id = 'recursos' and public.is_admin());
+drop policy if exists recursos_cambiar on storage.objects;
+create policy recursos_cambiar on storage.objects for update to authenticated using (bucket_id = 'recursos' and public.is_admin());
+drop policy if exists recursos_borrar on storage.objects;
+create policy recursos_borrar on storage.objects for delete to authenticated using (bucket_id = 'recursos' and public.is_admin());
