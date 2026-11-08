@@ -15,6 +15,7 @@ returns boolean language sql stable security definer set search_path = public as
     select 1 from public.profiles p where p.id = uid and (p.role = 'admin' or p.nivel = 'autoridad')
   );
 $$;
+revoke execute on function public.has_autoridad(uuid) from public, anon;
 grant execute on function public.has_autoridad(uuid) to authenticated;
 
 -- ¿Quien llama puede abrir un recurso con este tipo de acceso?
