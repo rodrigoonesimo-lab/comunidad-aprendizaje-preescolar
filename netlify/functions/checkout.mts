@@ -1,6 +1,6 @@
 // Crea la página de pago de Stripe para el plan elegido (con 7 días de prueba la primera vez).
 import type { Config } from "@netlify/functions"
-import { caller, env, json, stripe, soloMismoSitio } from "../lib/lib.mts"
+import { caller, json, priceFor, stripe, soloMismoSitio } from "../lib/lib.mts"
 
 const TRIAL_DAYS = 7
 
@@ -18,9 +18,9 @@ export default async (req: Request) => {
       return json({ error: "Ya tienes un plan activo. Adminístralo desde Mi suscripción." }, 400)
     }
 
-    const { plan } = await req.json().catch(() => ({}))
-    const price = plan === "anual" ? env("STRIPE_PRICE_ANUAL") : plan === "mensual" ? env("STRIPE_PRICE_MENSUAL") : null
-    if (!price) return json({ error: "Plan no válido." }, 400)
+    const { nivel, periodo } = await req.json().catch(() => ({}))
+    if (!["docente", "autoridad"].includes(nivel) || !["mensual", "anual"].includes(periodo)) return json({ error: "Plan no válido." }, 400)
+    const price = priceFor(nivel, periodo)
 
     const s = stripe()
     let customerId: string | null = profile.stripe_customer_id
@@ -47,7 +47,7 @@ export default async (req: Request) => {
       payment_method_types: ["card"],
       locale: "es",
       subscription_data: {
-        metadata: { user_id: profile.id },
+        metadata: { user_id: profile.id, nivel, periodo },
         ...(yaProbo ? {} : { trial_period_days: TRIAL_DAYS }),
       },
       success_url: `${origin}/#/panel?pago=ok`,

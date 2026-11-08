@@ -33,11 +33,29 @@ export async function caller(req: Request) {
   return profile ? { user: data.user, profile, db } : null
 }
 
-export function planFromPrice(priceId: string | undefined): "mensual" | "anual" | null {
+export type Nivel = "docente" | "autoridad"
+export type Periodo = "mensual" | "anual"
+
+// Precio de Stripe para cada plan y periodo.
+export function priceFor(nivel: Nivel, periodo: Periodo): string {
+  return env(`STRIPE_PRICE_${nivel.toUpperCase()}_${periodo.toUpperCase()}`)
+}
+
+// Qué plan y periodo corresponde a un precio de Stripe.
+// Los precios anteriores (STRIPE_PRICE_MENSUAL/ANUAL) se tratan como Autoridad Escolar.
+export function planFromPrice(priceId: string | undefined | null): { nivel: Nivel; periodo: Periodo } | null {
   if (!priceId) return null
-  if (priceId === Netlify.env.get("STRIPE_PRICE_MENSUAL")) return "mensual"
-  if (priceId === Netlify.env.get("STRIPE_PRICE_ANUAL")) return "anual"
-  return null
+  const g = (k: string) => Netlify.env.get(k)
+  const tabla: [string | undefined, Nivel, Periodo][] = [
+    [g("STRIPE_PRICE_DOCENTE_MENSUAL"), "docente", "mensual"],
+    [g("STRIPE_PRICE_DOCENTE_ANUAL"), "docente", "anual"],
+    [g("STRIPE_PRICE_AUTORIDAD_MENSUAL"), "autoridad", "mensual"],
+    [g("STRIPE_PRICE_AUTORIDAD_ANUAL"), "autoridad", "anual"],
+    [g("STRIPE_PRICE_MENSUAL"), "autoridad", "mensual"],
+    [g("STRIPE_PRICE_ANUAL"), "autoridad", "anual"],
+  ]
+  const f = tabla.find(([id]) => id && id === priceId)
+  return f ? { nivel: f[1], periodo: f[2] } : null
 }
 
 const iso = (s?: number | null) => (s ? new Date(s * 1000).toISOString() : null)
@@ -54,10 +72,26 @@ export async function syncSubscription(sub: Stripe.Subscription) {
   if (!userId) return
   const item = sub.items?.data?.[0] as (Stripe.SubscriptionItem & { current_period_end?: number }) | undefined
   const periodEnd = (sub as Stripe.Subscription & { current_period_end?: number }).current_period_end ?? item?.current_period_end
+  const actual = planFromPrice(item?.price?.id)
+  // Si hay un cambio programado para la siguiente renovación (bajar de plan), se guarda para mostrarlo.
+  let siguiente: Nivel | null = null
+  const schedId = typeof sub.schedule === "string" ? sub.schedule : sub.schedule?.id
+  if (schedId && !["canceled", "incomplete_expired"].includes(sub.status)) {
+    const sch = await stripe().subscriptionSchedules.retrieve(schedId)
+    if (sch.status === "active") {
+      const ahora = Math.floor(Date.now() / 1000)
+      const futura = sch.phases.find(f => f.start_date > ahora)
+      const pid = futura?.items?.[0]?.price
+      const sig = planFromPrice(typeof pid === "string" ? pid : pid?.id)
+      if (sig && sig.nivel !== actual?.nivel) siguiente = sig.nivel
+    }
+  }
   const update: Record<string, unknown> = {
     stripe_customer_id: customerId,
     stripe_subscription_id: sub.id,
-    plan: planFromPrice(item?.price?.id),
+    plan: actual?.periodo ?? null,
+    nivel: actual?.nivel ?? null,
+    nivel_siguiente: siguiente,
     sub_status: sub.status,
     current_period_end: iso(periodEnd),
     trial_end: iso(sub.trial_end),

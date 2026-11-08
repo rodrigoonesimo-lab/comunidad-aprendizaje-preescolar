@@ -28,8 +28,11 @@ Configúralas en **Project configuration › Environment variables**. Todas debe
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase › Project Settings › API › service_role (**secreta**) |
 | `STRIPE_SECRET_KEY` | Stripe › Developers › API keys › Secret key (`sk_test_…`) (**secreta**) |
 | `STRIPE_WEBHOOK_SECRET` | Stripe › Developers › Webhooks › tu endpoint › Signing secret (`whsec_…`) (**secreta**) |
-| `STRIPE_PRICE_MENSUAL` | Stripe › Product catalog › Plan mensual › ID del precio (`price_…`) |
-| `STRIPE_PRICE_ANUAL` | Stripe › Product catalog › Plan anual › ID del precio (`price_…`) |
+| `STRIPE_PRICE_DOCENTE_MENSUAL` | Stripe › Product catalog › Plan Docente › precio mensual (`price_…`) |
+| `STRIPE_PRICE_DOCENTE_ANUAL` | Stripe › Product catalog › Plan Docente › precio anual |
+| `STRIPE_PRICE_AUTORIDAD_MENSUAL` | Stripe › Product catalog › Plan Autoridad Escolar › precio mensual |
+| `STRIPE_PRICE_AUTORIDAD_ANUAL` | Stripe › Product catalog › Plan Autoridad Escolar › precio anual |
+| `STRIPE_PRICE_MENSUAL`, `STRIPE_PRICE_ANUAL` | (Antiguos) precios anteriores; quien los tenga cuenta como Autoridad Escolar |
 | `ADMIN_EMAIL` | Correo de la cuenta de administrador |
 | `SITE_URL` | Dirección pública del sitio, p. ej. `https://tu-sitio.netlify.app` |
 | `ALLOWED_ORIGINS` | (Opcional) Otros dominios permitidos, separados por comas |

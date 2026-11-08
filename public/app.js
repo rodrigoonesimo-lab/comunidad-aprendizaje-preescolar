@@ -12,6 +12,8 @@ const CAMPOS = ['Lenguajes', 'Saberes y pensamiento científico', 'Ética, natur
 const GRADOS = ['1°', '2°', '3°'];
 const TOOLS = [
   ['spark', 'Generador de planeaciones', 'Elige campo formativo, contenido y PDA, y arma tu proyecto.'],
+  ['eye', 'Guía de visita al aula', 'Registra lo observado en cada visita y la retroalimentación a la docente.', 'autoridad'],
+  ['report', 'Sistematización de resultados', 'Concentra la información de tus visitas y grupos para tomar decisiones.', 'autoridad'],
   ['obs', 'Registro de observaciones', 'Notas rápidas por alumno desde el celular.'],
   ['check', 'Listas de cotejo y rúbricas', 'Créalas y llénalas en línea.'],
   ['report', 'Reporte de evaluación', 'Redacción guiada del reporte para familias.'],
@@ -79,6 +81,17 @@ function subState(p) {
   return { key: 'vencida', label: 'Vencida', access: false };
 }
 const hasAccess = p => !!p && (isAdmin(p) || subState(p).access);
+const NIVEL_TXT = { docente: 'Docente', autoridad: 'Autoridad Escolar' };
+const FUNCIONES = { docente: 'Docente frente a grupo', directivo: 'Directivo', supervisor: 'Supervisor', atp: 'ATP' };
+// Nivel con el que la persona tiene acceso hoy (null si no tiene acceso).
+const nivelDe = p => !p ? null : isAdmin(p) ? 'autoridad' : hasAccess(p) ? (p.nivel || 'docente') : null;
+// ¿Puede abrir algo con este tipo de acceso? gratis · suscripcion (Docente y Autoridad) · autoridad (solo Autoridad Escolar)
+const canAcc = (p, acc) => acc === 'gratis' || (acc === 'autoridad' ? nivelDe(p) === 'autoridad' : hasAccess(p));
+const ACCESO_TXT = { gratis: 'Gratis', suscripcion: 'Plan Docente y Autoridad', autoridad: 'Solo Autoridad Escolar' };
+function precios() { const s = S.settings || {}, d = s.precios || {}; return { docente: Object.assign({ mensual: 49.99, anual: 499.99 }, d.docente), autoridad: Object.assign({ mensual: 89.99, anual: 899.99 }, d.autoridad) }; }
+const recomendado = p => (p && p.funcion && p.funcion !== 'docente' ? 'autoridad' : 'docente');
+const planTxt = p => (p.nivel || p.plan ? `${NIVEL_TXT[p.nivel || 'docente']} ${p.plan || ''}`.trim() : '—');
+const precioDe = p => (p.plan ? precios()[p.nivel || 'docente'][p.plan] : 0);
 function visible(r) { const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' }); return r.estado === 'publicado' || (r.estado === 'programado' && r.fecha_pub && r.fecha_pub <= today); }
 const publicRes = () => S.resources.filter(visible);
 
@@ -149,17 +162,18 @@ function footer() {
 }
 function coverUrl(path) { return sb.storage.from('portadas').getPublicUrl(path).data.publicUrl; }
 function resAction(r) {
-  const p = S.profile, free = r.acceso === 'gratis', can = free || hasAccess(p);
+  const p = S.profile, free = r.acceso === 'gratis', can = canAcc(p, r.acceso);
   if (r.formato === 'Herramienta en línea') return `<a class="btn btn-o" href="${p ? '#/panel/herramientas' : '#/registro'}">${ico('tools', '#234386', 20)}Abrir herramienta</a>`;
   if (can) return `<button class="btn btn-y" data-act="download" data-id="${r.id}">${ico('down', '#FFFFFF', 20)}${free && !hasAccess(p) ? 'Descargar gratis' : 'Descargar'}</button>`;
+  if (r.acceso === 'autoridad' && hasAccess(p)) return `<a class="btn btn-o" href="#/panel/suscripcion">${ico('lock', '#B4510F', 20)}Disponible en plan Autoridad Escolar</a>`;
   return p ? `<a class="btn btn-o" href="#/panel/suscripcion">${ico('lock', '#B4510F', 20)}Elige un plan para descargar</a>` : `<a class="btn btn-o" href="#/registro">${ico('lock', '#B4510F', 20)}Ver con prueba gratis</a>`;
 }
 function resCard(r, ctx) {
   const p = S.profile; const [icn, bg] = CAT_STYLE[r.categoria] || ['plan', '#E4EAF5'];
-  const free = r.acceso === 'gratis', can = free || hasAccess(p);
+  const free = r.acceso === 'gratis';
   const isFav = p && (p.favoritos || []).includes(r.id);
   const fav = p && !isAdmin(p) ? `<button class="btn btn-o btn-sm" data-act="fav" data-id="${r.id}" aria-pressed="${!!isFav}">${ico('star', '#234386', 18)}${isFav ? 'Quitar de favoritos' : 'Guardar'}</button>` : '';
-  const badge = ctx === 'nuevo' ? '<span class="tag tag-b">Nuevo</span>' : (free ? '<span class="tag tag-y">Gratis</span>' : '<span class="tag tag-b">Con suscripción</span>');
+  const badge = ctx === 'nuevo' ? '<span class="tag tag-b">Nuevo</span>' : (free ? '<span class="tag tag-y">Gratis</span>' : r.acceso === 'autoridad' ? '<span class="tag tag-a">Autoridad Escolar</span>' : '<span class="tag tag-b">Con suscripción</span>');
   const act = resAction(r);
   const thumb = r.cover_path
     ? `<button type="button" class="cover" data-act="verPortada" data-id="${r.id}" aria-label="Ver la portada de ${esc(r.titulo)} en grande"><img src="${esc(coverUrl(r.cover_path))}" alt="Portada de ${esc(r.titulo)}" loading="lazy" decoding="async"></button>`
@@ -213,13 +227,14 @@ ${pencil('#234386', 'width:44%;left:2%;bottom:-6%;transform:rotate(-8deg)', 'hid
 /* ================= PÁGINAS PÚBLICAS ================= */
 async function pgInicio() {
   await loadResources();
-  const s = S.settings, pm = s.precioMensual, pa = s.precioAnual;
-  const ahorro = Math.max(0, pm * 12 - pa), mesEq = Math.round(pa / 12);
+  const s = S.settings, PR = precios();
   const descs = { 'Planeación y proyectos': 'Proyectos comunitarios, escolares y de aula listos para adaptar a tu grupo, y apoyo para tu plan analítico.', 'Evaluación y seguimiento': 'Listas de cotejo, rúbricas y formatos para registrar avances y elaborar reportes.', 'Material imprimible': 'Fichas de grafomotricidad, conteo, lectoescritura, emociones y efemérides.', 'Formatos y familias': 'Documentos administrativos, minutas de CTE, circulares y mensajes para madres y padres.' };
   const cats = CATS.map(c => { const [i, bg] = CAT_STYLE[c]; return `<article class="card"><div class="ic" style="background:${bg}">${ico(i, '#234386')}</div><h3>${c}</h3><p style="color:var(--tinta-suave)">${descs[c]}</p><a href="#/catalogo?cat=${encodeURIComponent(c)}" class="eyebrow" style="margin-top:auto;text-decoration:none">Ver recursos →</a></article>`; }).join('');
   const free = publicRes().filter(r => r.acceso === 'gratis').slice(0, 3).map(r => resCard(r)).join('') || '<p class="empty">Muy pronto habrá recursos gratuitos para descargar.</p>';
-  const tools = TOOLS.map(([i, t, d]) => `<article class="card"><div class="ic" style="background:#FFF1BF">${ico(i, '#234386')}</div><h3>${t}</h3><p style="color:var(--tinta-suave)">${d}</p></article>`).join('');
-  const feats = ['Todos los recursos descargables (PDF y Word)', 'Las herramientas en línea', 'Recursos nuevos cada mes', 'Para 1°, 2° y 3° de preescolar'].map(f => `<li>${ico('ok', '#3F6B3B', 22)}<span>${f}</span></li>`).join('');
+  const tools = TOOLS.map(([i, t, d, nv]) => `<article class="card"><div class="ic" style="background:#FFF1BF">${ico(i, '#234386')}</div><h3>${t}</h3><p style="color:var(--tinta-suave)">${d}</p>${nv === 'autoridad' ? '<span class="tag tag-a" style="margin-top:auto;align-self:flex-start">Plan Autoridad Escolar</span>' : ''}</article>`).join('');
+  const li = arr => arr.map(f => `<li>${ico('ok', '#3F6B3B', 22)}<span>${f}</span></li>`).join('');
+  const planCard = (nv, titulo, quien, feats, dest) => { const m = PR[nv].mensual, a = PR[nv].anual, ah = Math.max(0, m * 12 - a);
+    return `<article class="card" style="padding:36px;gap:18px${dest ? ';outline:2px solid var(--indigo);outline-offset:-2px' : ''}"><h3 class="eyebrow">${titulo}</h3><p style="color:var(--tinta-suave)">${quien}</p><p class="price">${money(m)} <small>MXN al mes</small></p><p style="color:var(--tinta-suave)">o ${money(a)} al año${ah ? ` <span class="tag tag-y">Ahorras ${money(ah)}</span>` : ''}</p><ul class="feat">${li(feats)}</ul><a class="btn ${dest ? 'btn-y' : 'btn-o'}" href="#/registro" style="margin-top:auto">Empezar prueba gratis</a></article>`; };
   const faq = (s.faq || []).map(([q, a]) => `<details><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join('');
   const steps = [[1, 'Crea tu cuenta', 'Tu nombre, tu correo y una contraseña. Confirma tu correo.'], [2, 'Elige tu plan', 'Registra tu tarjeta. No se cobra nada durante la prueba.'], [3, `Usa todo ${TRIAL_DAYS} días gratis`, 'Si no cancelas antes, se hace el primer cobro de tu plan.']].map(([n, t, d]) => `<div class="stack" style="gap:14px"><div class="num">${n}</div><h3>${t}</h3><p style="color:var(--tinta-suave)">${d}</p></div>`).join('');
   return `${header()}<main id="inicio">
@@ -234,10 +249,10 @@ ${wave('#FFFFFF')}<section id="recursos" class="sec" style="background:#fff;padd
 ${wave('#FFFFFF', true)}<section id="gratis" class="sec">${blob('#A2D3A6', 1, 'width:260px;right:-90px;top:30px;opacity:.55')}<div class="wrap"><div class="sec-h"><span class="eyebrow">Prueba sin registrarte</span><h2>Recursos gratuitos para empezar</h2><p class="lead">Descárgalos y conoce la calidad de nuestros materiales.</p></div><div class="grid">${free}</div></div></section>
 ${wave('#CF5C14')}<section id="herramientas" class="sec band-o" style="padding-top:40px">${pencil('#FFFFFF', 'width:240px;right:3%;top:28px;opacity:.6;transform:rotate(6deg)', 'hide-m')}<div class="wrap"><div class="sec-h"><span class="eyebrow">Herramientas en línea</span><h2>Llena, guarda y consulta desde tu celular</h2><p style="font-size:18px">Además de los recursos para descargar, tendrás herramientas que trabajan contigo.</p></div><div class="grid">${tools}</div></div></section>
 ${wave('#CF5C14', true)}<section class="sec">${sprig('#6AA8DC', 'width:110px;right:6%;top:40px;transform:rotate(16deg)', 'hide-m')}<div class="wrap"><div class="sec-h"><span class="eyebrow">Así de fácil</span><h2>Empieza hoy en tres pasos</h2></div><div class="grid">${steps}</div></div></section>
-${wave('#FFFFFF')}<section id="planes" class="sec" style="background:#fff;padding-top:48px">${blob('#FFC400', 0, 'width:300px;left:-120px;bottom:40px;opacity:.5')}<div class="wrap"><div class="sec-h"><span class="eyebrow">Planes y precios</span><h2>Un precio, acceso a todo</h2><p class="lead">Los dos planes incluyen lo mismo y empiezan con ${TRIAL_DAYS} días gratis.</p></div>
-<div class="grid" style="max-width:880px">
-<article class="card" style="padding:36px;gap:18px"><h3 class="eyebrow">Mensual</h3><p class="price">${money(pm)} <small>MXN al mes</small></p><p style="color:var(--tinta-suave)">Paga mes a mes y cancela cuando quieras.</p><ul class="feat">${feats}</ul><a class="btn btn-o" href="#/registro" style="margin-top:auto">Empezar prueba gratis</a></article>
-<article class="card" style="padding:36px;gap:18px;outline:2px solid var(--indigo);outline-offset:-2px"><div class="row between"><h3 class="eyebrow">Anual</h3>${ahorro ? `<span class="tag tag-y">Ahorras ${money(ahorro)}</span>` : ''}</div><p class="price">${money(pa)} <small>MXN al año</small></p><p style="color:var(--tinta-suave)">Equivale a ${money(mesEq)} al mes. 12 meses desde tu primer cobro.</p><ul class="feat">${feats}</ul><a class="btn btn-y" href="#/registro" style="margin-top:auto">Empezar prueba gratis</a></article>
+${wave('#FFFFFF')}<section id="planes" class="sec" style="background:#fff;padding-top:48px">${blob('#FFC400', 0, 'width:300px;left:-120px;bottom:40px;opacity:.5')}<div class="wrap"><div class="sec-h"><span class="eyebrow">Planes y precios</span><h2>Un plan para cada función</h2><p class="lead">Los dos planes empiezan con ${TRIAL_DAYS} días gratis. Elige pago mensual o anual.</p></div>
+<div class="grid" style="max-width:880px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
+${planCard('docente', 'Plan Docente', 'Para educadoras frente a grupo.', ['Recursos descargables (PDF y Word)', 'Herramientas en línea para el aula', 'Recursos nuevos cada mes', 'Para 1°, 2° y 3° de preescolar'], false)}
+${planCard('autoridad', 'Plan Autoridad Escolar', 'Para directivos, supervisores y ATP.', ['Todo lo del plan Docente', 'Recursos exclusivos de gestión y acompañamiento', 'Herramientas de visita y sistematización', 'Recursos nuevos cada mes'], true)}
 </div><div class="row" style="margin-top:24px;color:var(--tinta-suave)">${ico('card', '#4A5661', 22)}<span>Pago seguro con tarjeta de crédito o débito. Se renueva solo y puedes cancelar cuando quieras.</span></div></div></section>
 ${wave('#FFFFFF', true)}<section id="preguntas" class="sec"><div class="wrap" style="max-width:880px"><div class="sec-h"><span class="eyebrow">Preguntas frecuentes</span><h2>Resolvemos tus dudas</h2></div><div class="faq">${faq}</div></div></section>
 <section class="sec" style="padding-top:24px"><div class="wrap"><div class="card" style="padding:48px 36px;align-items:flex-start;gap:16px;overflow:hidden">${blob('#FFC400', 1, 'width:260px;right:-60px;top:-80px;opacity:.9')}${sprig('#234386', 'width:110px;right:40px;bottom:-30px;transform:rotate(8deg)', 'hide-m')}<h2 style="position:relative;max-width:640px">Únete a la comunidad</h2><p class="script" style="position:relative">Construimos juntos la escuela que soñamos.</p><p class="lead" style="position:relative;max-width:560px">Prueba todos los recursos gratis durante ${TRIAL_DAYS} días.</p><a class="btn btn-y" href="#/registro" style="position:relative">Prueba gratis ${TRIAL_DAYS} días</a></div></div></section>
@@ -288,7 +303,7 @@ function accesoShell(inner) {
 <div style="display:grid;gap:32px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));align-items:start">
 <section class="band stack" style="border-radius:8px;padding:40px;gap:20px;position:relative;overflow:hidden">${sprig('#6AA8DC', 'width:120px;right:-10px;bottom:-20px;opacity:.7')}<div style="background:#FBF9F6;border-radius:50%;padding:18px;align-self:flex-start">${logo(96, '#FBF9F6')}</div>
 <h2>Tu prueba gratis de ${TRIAL_DAYS} días incluye</h2><p class="script" style="color:#FFC400;font-size:30px">Construimos juntos la escuela que soñamos.</p><ul class="feat" style="font-size:17px">${incl}</ul>
-<p style="color:#E6EEF5">Después: mensual ${money(S.settings.precioMensual)} o anual ${money(S.settings.precioAnual)}.</p></section>
+<p style="color:#E6EEF5">Después: plan Docente desde ${money(precios().docente.mensual)} al mes o plan Autoridad Escolar desde ${money(precios().autoridad.mensual)} al mes.</p></section>
 <section class="card" style="padding:32px;gap:18px">${inner}</section></div></main>${footer()}`;
 }
 function pgAcceso(mode) {
@@ -300,7 +315,8 @@ function pgAcceso(mode) {
 <div class="field"><label for="nom">Nombre completo</label><input id="nom" name="nombre" class="inp" autocomplete="name" required></div>
 <div class="field"><label for="mail">Correo electrónico</label><input id="mail" name="email" class="inp" type="email" autocomplete="email" required></div>
 <div class="field"><label for="pass">Contraseña</label><input id="pass" name="pass" class="inp" type="password" autocomplete="new-password" minlength="8" required><span class="muted">Mínimo 8 caracteres.</span></div>
-<div class="field"><label for="grado">Grado que atiendes</label><select id="grado" name="grado" class="inp"><option value="">Selecciona una opción</option>${opt(['1° de preescolar', '2° de preescolar', '3° de preescolar', 'Grupo multigrado', 'Dirección, supervisión o ATP'])}</select></div>
+<div class="field"><label for="funcion">Tu función</label><select id="funcion" name="funcion" class="inp" required><option value="">Selecciona una opción</option>${Object.entries(FUNCIONES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select><span class="muted">Te recomendaremos el plan que mejor te queda.</span></div>
+<div class="field"><label for="grado">Grado que atiendes</label><select id="grado" name="grado" class="inp"><option value="">Selecciona una opción</option>${opt(['1° de preescolar', '2° de preescolar', '3° de preescolar', 'Grupo multigrado', 'No atiendo grupo'])}</select></div>
 <label class="chk"><input type="checkbox" name="acepto"><span>Acepto el aviso de privacidad y los términos de uso.</span></label>
 <p class="err" data-err hidden></p>
 <button class="btn btn-y" type="submit" style="font-size:17px">Crear mi cuenta</button>
@@ -344,7 +360,7 @@ function subBanner(p) {
   const st = subState(p);
   const h = t => `<p style="font-family:var(--f-display);font-size:30px;letter-spacing:.03em;color:var(--indigo);line-height:1">${t}</p>`;
   if (st.key === 'sinplan') return `<section class="notice">${`<div class="stack" style="gap:4px">${h(p.trial_used ? 'Elige tu plan para continuar' : `Elige tu plan para empezar tus ${TRIAL_DAYS} días gratis`)}<p>${p.trial_used ? 'Contrata tu plan para descargar recursos y usar las herramientas.' : 'Registras tu tarjeta, pero no se cobra nada durante la prueba.'}</p></div>`}<a class="btn btn-b" href="#/panel/suscripcion">Elegir mi plan</a></section>`;
-  if (st.key === 'prueba') { const d = daysLeft(p.trial_end); return `<section class="notice"><div class="stack" style="gap:4px">${h(`Te ${d === 1 ? 'queda 1 día' : `quedan ${d} días`} de prueba gratis`)}<p>${p.cancel_at_period_end ? 'Cancelaste tu plan: no se te cobrará.' : `El ${fmtDate(p.trial_end)} se hará el primer cobro de tu plan ${esc(p.plan || '')}.`}</p></div><a class="btn btn-o" href="#/panel/suscripcion">Ver mi suscripción</a></section>`; }
+  if (st.key === 'prueba') { const d = daysLeft(p.trial_end); return `<section class="notice"><div class="stack" style="gap:4px">${h(`Te ${d === 1 ? 'queda 1 día' : `quedan ${d} días`} de prueba gratis`)}<p>${p.cancel_at_period_end ? 'Cancelaste tu plan: no se te cobrará.' : `El ${fmtDate(p.trial_end)} se hará el primer cobro de tu plan ${esc(planTxt(p))} (${money(precioDe(p))}).`}</p></div><a class="btn btn-o" href="#/panel/suscripcion">Ver mi suscripción</a></section>`; }
   if (st.key === 'pendiente') return `<section class="notice r"><div class="stack" style="gap:4px">${h('No pudimos cobrar tu plan')}<p>Actualiza tu tarjeta para no perder el acceso.</p></div><button class="btn btn-b" data-act="portal">Actualizar tarjeta</button></section>`;
   if (st.key === 'vencida') return `<section class="notice r"><div class="stack" style="gap:4px">${h('Tu acceso terminó')}<p>Contrata un plan para volver a descargar recursos y usar las herramientas.</p></div><a class="btn btn-b" href="#/panel/suscripcion">Elegir mi plan</a></section>`;
   if (st.key === 'cancelada') return `<section class="notice b"><p>Cancelaste la renovación. Tienes acceso hasta el <b>${fmtDate(p.current_period_end)}</b>.</p><button class="btn btn-o" data-act="portal">Reactivar</button></section>`;
@@ -363,10 +379,10 @@ async function pgPanel(params) {
   const st = subState(p);
   const avisos = (must(await sb.from('avisos').select('*').eq('panel', true).gte('fecha', new Date(ts(p.created_at) - 30 * DAY).toISOString()).order('fecha', { ascending: false }).limit(10)) || [])
     .filter(a => !(p.avisos_cerrados || []).includes(a.id))
-    .filter(a => a.destino === 'Todas las suscriptoras' || (a.destino === 'Solo en prueba' && st.key === 'prueba') || (a.destino === 'Solo plan mensual' && p.plan === 'mensual') || (a.destino === 'Solo plan anual' && p.plan === 'anual')).slice(0, 3);
+    .filter(a => a.destino === 'Todas las suscriptoras' || (a.destino === 'Solo en prueba' && st.key === 'prueba') || (a.destino === 'Solo plan mensual' && p.plan === 'mensual') || (a.destino === 'Solo plan anual' && p.plan === 'anual') || (a.destino === 'Solo plan Docente' && nivelDe(p) === 'docente') || (a.destino === 'Solo plan Autoridad Escolar' && nivelDe(p) === 'autoridad')).slice(0, 3);
   const dls = await myDescargas(5);
   const byId = id => S.resources.find(r => r.id === id);
-  const tools = TOOLS.map(([i, t], n) => `<a class="card" href="${n === 0 ? '#/panel/planeaciones' : '#/panel/herramientas'}" style="text-decoration:none;padding:18px;gap:10px"><div class="ic" style="background:#E4EAF5;width:44px;height:44px">${ico(i, '#234386', 22)}</div><span style="font-weight:700;color:var(--tinta)">${t}</span></a>`).join('');
+  const tools = TOOLS.filter(x => x[3] !== 'autoridad' || nivelDe(p) === 'autoridad').map(([i, t], n) => `<a class="card" href="${n === 0 ? '#/panel/planeaciones' : '#/panel/herramientas'}" style="text-decoration:none;padding:18px;gap:10px"><div class="ic" style="background:#E4EAF5;width:44px;height:44px">${ico(i, '#234386', 22)}</div><span style="font-weight:700;color:var(--tinta)">${t}</span></a>`).join('');
   const nuevos = publicRes().filter(r => r.nuevo_mes).slice(0, 4).map(r => resCard(r, 'nuevo')).join('') || '<p class="empty">Este mes aún no hay recursos nuevos.</p>';
   const favs = (p.favoritos || []).map(byId).filter(Boolean).slice(0, 5);
   const av = avisos.map(a => `<section class="notice b"><div class="stack" style="gap:4px"><p style="font-weight:800">${esc(a.titulo)}</p><p>${esc(a.mensaje)}</p></div><button class="btn btn-o btn-sm" data-act="closeAviso" data-id="${a.id}">Cerrar aviso</button></section>`).join('');
@@ -375,7 +391,7 @@ ${av}${subBanner(p)}
 <section class="stack"><h2 style="font-size:26px">Herramientas en línea</h2><div class="grid-s">${tools}</div></section>
 <section class="stack"><div class="row between"><h2 style="font-size:26px">Recursos nuevos del mes</h2><a href="#/catalogo" style="font-weight:700">Ver todos</a></div><div class="grid">${nuevos}</div></section>
 <div class="grid">
-<section class="card"><div class="row">${ico('star', '#234386', 24)}<h3>Mis favoritos</h3></div>${favs.length ? `<ul class="list">${favs.map(r => `<li><span style="font-weight:600">${esc(r.titulo)}</span>${hasAccess(p) || r.acceso === 'gratis' ? `<button class="btn btn-o btn-sm" data-act="download" data-id="${r.id}">Descargar</button>` : ''}</li>`).join('')}</ul>` : '<p class="muted">Guarda recursos con el botón "Guardar" para tenerlos a la mano.</p>'}</section>
+<section class="card"><div class="row">${ico('star', '#234386', 24)}<h3>Mis favoritos</h3></div>${favs.length ? `<ul class="list">${favs.map(r => `<li><span style="font-weight:600">${esc(r.titulo)}</span>${canAcc(p, r.acceso) ? `<button class="btn btn-o btn-sm" data-act="download" data-id="${r.id}">Descargar</button>` : ''}</li>`).join('')}</ul>` : '<p class="muted">Guarda recursos con el botón "Guardar" para tenerlos a la mano.</p>'}</section>
 <section class="card"><div class="row">${ico('down', '#234386', 24)}<h3>Descargas recientes</h3></div>${dls.length ? `<ul class="list">${dls.map(d => { const r = byId(d.resource_id); return `<li><span style="font-weight:600">${esc(r ? r.titulo : 'Recurso no disponible')}</span><span class="muted">${fmtDate(d.created_at)}</span></li>`; }).join('')}</ul>` : '<p class="muted">Aquí verás lo último que descargaste.</p>'}</section>
 </div>`);
 }
@@ -397,36 +413,54 @@ async function pgFavoritos() {
 async function pgDescargas() {
   const p = needUser(); if (!p) return ''; await loadResources();
   const dls = await myDescargas(200);
-  return shell('Descargas', `${title('Mis descargas', 'Todo lo que has descargado.')}${dls.length ? `<section class="card"><ul class="list">${dls.map(d => { const r = S.resources.find(x => x.id === d.resource_id); return `<li><span style="font-weight:600">${esc(r ? r.titulo : 'Recurso no disponible')}</span><span class="row"><span class="muted">${fmtDate(d.created_at)}</span>${r && (hasAccess(p) || r.acceso === 'gratis') ? `<button class="btn btn-o btn-sm" data-act="download" data-id="${r.id}">Descargar de nuevo</button>` : ''}</span></li>`; }).join('')}</ul></section>` : '<p class="empty">Aún no descargas recursos.</p>'}`);
+  return shell('Descargas', `${title('Mis descargas', 'Todo lo que has descargado.')}${dls.length ? `<section class="card"><ul class="list">${dls.map(d => { const r = S.resources.find(x => x.id === d.resource_id); return `<li><span style="font-weight:600">${esc(r ? r.titulo : 'Recurso no disponible')}</span><span class="row"><span class="muted">${fmtDate(d.created_at)}</span>${r && canAcc(p, r.acceso) ? `<button class="btn btn-o btn-sm" data-act="download" data-id="${r.id}">Descargar de nuevo</button>` : ''}</span></li>`; }).join('')}</ul></section>` : '<p class="empty">Aún no descargas recursos.</p>'}`);
 }
 function pgHerramientas() {
   const p = needUser(); if (!p) return '';
   return shell('Herramientas', `${title('Herramientas en línea', 'El generador de planeaciones ya está listo. Te avisaremos en tu panel cuando las demás herramientas estén disponibles.')}
-<div class="grid">${TOOLS.map(([i, t, d], n) => `<article class="card"><div class="ic" style="background:#E4EAF5">${ico(i, '#234386')}</div><h3>${t}</h3><p style="color:var(--tinta-suave)">${d}</p>${n === 0 ? '<a class="btn btn-y" href="#/panel/planeaciones" style="align-self:flex-start;margin-top:auto">Abrir</a>' : '<span class="tag tag-a" style="margin-top:auto">Próximamente</span>'}</article>`).join('')}</div>`);
+<div class="grid">${TOOLS.map(([i, t, d, nv], n) => `<article class="card"><div class="ic" style="background:#E4EAF5">${ico(i, '#234386')}</div><h3>${t}</h3><p style="color:var(--tinta-suave)">${d}</p>${nv === 'autoridad' ? '<span class="tag tag-b" style="align-self:flex-start">Plan Autoridad Escolar</span>' : ''}${n === 0 ? '<a class="btn btn-y" href="#/panel/planeaciones" style="align-self:flex-start;margin-top:auto">Abrir</a>' : '<span class="tag tag-a" style="margin-top:auto;align-self:flex-start">Próximamente</span>'}</article>`).join('')}</div>`);
 }
 async function pgSuscripcion() {
   const p = needUser(); if (!p) return '';
-  const st = subState(p), pm = S.settings.precioMensual, pa = S.settings.precioAnual;
+  const st = subState(p), PR = precios();
   const pagos = must(await sb.from('payments').select('*').eq('user_id', p.id).order('fecha', { ascending: false })) || [];
   const hasSub = !!p.stripe_subscription_id && ['prueba', 'activa', 'cancelada', 'pendiente'].includes(st.key);
   let body;
   if (hasSub) {
-    const rows = [['Plan', p.plan ? 'Plan ' + p.plan + ' · ' + money(p.plan === 'anual' ? pa : pm) : '—'], ['Estado', st.label],
+    const nv = p.nivel || 'docente', otro = nv === 'docente' ? 'autoridad' : 'docente';
+    const rows = [['Plan', `${planTxt(p)} · ${money(precioDe(p))}`], ['Estado', st.label],
       st.key === 'prueba' ? ['Termina la prueba', fmtDate(p.trial_end)] : [p.cancel_at_period_end ? 'Acceso hasta el' : 'Se renueva el', fmtDate(p.current_period_end)], ['Sesión activa', 'Este dispositivo']];
+    const pend = p.nivel_siguiente && p.nivel_siguiente !== nv;
+    const cambio = st.key === 'pendiente' ? '<p class="muted">Para cambiar de plan, primero actualiza tu tarjeta.</p>'
+      : pend ? `<section class="notice b"><p>Tu plan cambiará a <b>${NIVEL_TXT[p.nivel_siguiente]}</b> el ${fmtDate(p.current_period_end)}. Hasta entonces conservas ${NIVEL_TXT[nv]}.</p><button class="btn btn-o" data-act="cambiarPlan" data-nivel="${nv}">Conservar ${NIVEL_TXT[nv]}</button></section>`
+      : `<div class="stack" style="gap:8px"><h3>${otro === 'autoridad' ? '¿Necesitas las herramientas de Autoridad Escolar?' : '¿Prefieres el plan Docente?'}</h3><p class="muted">Plan ${NIVEL_TXT[otro]} ${p.plan}: ${money(PR[otro][p.plan])} ${p.plan === 'anual' ? 'al año' : 'al mes'}.</p><button class="btn ${otro === 'autoridad' ? 'btn-y' : 'btn-o'}" data-act="cambiarPlan" data-nivel="${otro}" style="align-self:flex-start">Cambiar a plan ${NIVEL_TXT[otro]}</button></div>`;
     body = `<section class="card" style="padding:28px;gap:18px"><ul class="list">${rows.map(([a, b]) => `<li><span>${a}</span><span style="font-weight:700">${esc(b)}</span></li>`).join('')}</ul>
-<div class="row"><button class="btn btn-b" data-act="portal">Cambiar plan, tarjeta o cancelar</button></div>
+${cambio}
+<div class="row"><button class="btn btn-b" data-act="portal">Tarjeta, facturas o cancelar</button></div>
 <p class="muted">Se abre la página segura de Stripe. Tu plan se renueva solo con tu tarjeta. Si cancelas, conservas el acceso hasta el final del periodo pagado. No hay reembolsos.</p></section>`;
   } else {
-    const trial = !p.trial_used;
+    const trial = !p.trial_used, rec = recomendado(p);
+    const card = (nv, quien, feats) => `<article class="card" style="background:var(--marfil)${rec === nv ? ';border:3px solid var(--azul)' : ''}"><div class="row between"><h3>Plan ${NIVEL_TXT[nv]}</h3>${rec === nv ? '<span class="tag tag-y">Recomendado para ti</span>' : ''}</div><p class="muted">${quien}</p><ul class="feat">${feats.map(f => `<li>${ico('ok', '#3F6B3B', 20)}<span>${f}</span></li>`).join('')}</ul>
+<div class="stack" style="gap:10px;margin-top:auto"><button class="btn btn-o" data-act="checkout" data-nivel="${nv}" data-periodo="mensual">${trial ? 'Prueba gratis · luego' : 'Mensual ·'} ${money(PR[nv].mensual)} al mes</button><button class="btn btn-y" data-act="checkout" data-nivel="${nv}" data-periodo="anual">${trial ? 'Prueba gratis · luego' : 'Anual ·'} ${money(PR[nv].anual)} al año</button></div></article>`;
     body = `<section class="card" style="padding:28px;gap:18px"><h2 style="font-size:24px">${trial ? `Elige tu plan y empieza tus ${TRIAL_DAYS} días gratis` : 'Elige tu plan'}</h2>
 <p>${trial ? `Registras tu tarjeta en la página segura de Stripe. No se cobra nada durante ${TRIAL_DAYS} días; si no cancelas antes, se hace el primer cobro del plan que elijas.` : 'Se cobra hoy y se renueva automáticamente. Puedes cancelar cuando quieras.'}</p>
-<div class="grid">
-<article class="card" style="background:var(--marfil)"><h3>Mensual</h3><p class="price">${money(pm)} <small>al mes</small></p><button class="btn btn-o" data-act="checkout" data-plan="mensual">${trial ? 'Empezar prueba con plan mensual' : 'Contratar plan mensual'}</button></article>
-<article class="card" style="background:var(--marfil);border:3px solid var(--azul)"><h3>Anual</h3><p class="price">${money(pa)} <small>al año</small></p><button class="btn btn-y" data-act="checkout" data-plan="anual">${trial ? 'Empezar prueba con plan anual' : 'Contratar plan anual'}</button></article>
-</div><p class="muted">${ico('lock', '#4A5661', 16)} Pago con tarjeta de crédito o débito procesado por Stripe. Nunca vemos ni guardamos los datos de tu tarjeta.</p></section>`;
+<div class="grid">${card('docente', 'Para educadoras frente a grupo.', ['Recursos descargables', 'Herramientas para el aula', 'Recursos nuevos cada mes'])}${card('autoridad', 'Para directivos, supervisores y ATP.', ['Todo lo del plan Docente', 'Recursos exclusivos de gestión', 'Herramientas de visita y sistematización'])}</div>
+<p class="muted">Después puedes cambiar de plan desde esta página. ${ico('lock', '#4A5661', 16)} Pago con tarjeta de crédito o débito procesado por Stripe. Nunca vemos ni guardamos los datos de tu tarjeta.</p></section>`;
   }
   return shell('Mi suscripción', `${title('Mi suscripción', '')}${subBanner(p)}${body}
 <section class="card"><h3>Historial de pagos</h3>${pagos.length ? `<ul class="list">${pagos.map(x => `<li><span>${esc(x.concepto)} · ${money(x.monto)}</span><span class="muted">${fmtDate(x.fecha)}</span></li>`).join('')}</ul>` : '<p class="muted">Todavía no hay pagos.</p>'}</section>`);
+}
+// Aviso antes de cambiar de plan, con el monto exacto que calcula el servidor.
+function avisoCambio(v) {
+  const nombre = NIVEL_TXT[v.nivel], per = v.periodo === 'anual' ? 'año' : 'mes', perS = v.periodo === 'anual' ? 'anualidad' : 'mes';
+  const txt = {
+    subir: `<p>Se cobrará <b>hoy ${money(v.monto)}</b> a tu tarjeta: la diferencia para pasar al plan ${nombre} en lo que resta de tu ${perS}.</p><p>A partir de tu siguiente renovación (${fmtDate(v.fecha)}) se cobrará el ${perS} completo: <b>${money(v.precioNuevo)}</b> al ${per}.</p><p class="muted">Tienes acceso a todo lo del plan ${nombre} en cuanto se confirme el cobro.</p>`,
+    bajar: `<p>Conservas el plan Autoridad Escolar hasta el <b>${fmtDate(v.fecha)}</b>. Desde esa renovación se cobrará el plan ${nombre}: <b>${money(v.precioNuevo)}</b> al ${per}.</p><p class="muted">No hay reembolso por la diferencia del periodo que ya pagaste. Al cambiar dejarás de ver los recursos y herramientas exclusivos de Autoridad Escolar.</p>`,
+    prueba: `<p>Estás en tu prueba gratis: el cambio es inmediato y <b>no se cobra nada hoy</b>.</p><p>Al terminar la prueba (${fmtDate(v.fecha)}) se cobrará el plan ${nombre}: <b>${money(v.precioNuevo)}</b> al ${per}.</p>`,
+    conservar: `<p>Se cancela el cambio programado y conservas tu plan ${nombre}. Tu siguiente renovación será el ${fmtDate(v.fecha)} con el mismo precio de siempre.</p>`,
+  }[v.tipo];
+  const btn = v.tipo === 'subir' ? `Pagar ${money(v.monto)} y cambiar` : v.tipo === 'conservar' ? `Conservar plan ${nombre}` : `Cambiar a plan ${nombre}`;
+  modal(`<h2 style="font-size:28px">${v.tipo === 'conservar' ? 'Conservar tu plan' : `Cambiar a plan ${nombre}`}</h2>${txt}<div class="row between" style="margin-top:8px"><button type="button" class="btn btn-o" data-act="closeModal">Cancelar</button><button type="button" class="btn btn-y" data-act="confirmarCambio" data-nivel="${v.nivel}">${btn}</button></div>`);
 }
 
 /* ================= ADMINISTRADOR ================= */
@@ -441,12 +475,12 @@ async function pgAdmin() {
   const states = ds.map(subState);
   const cnt = k => states.filter(s => s.key === k).length;
   const ingresos = pagos.reduce((s, x) => s + Number(x.monto), 0);
-  const prox = ds.filter(u => ['active', 'trialing'].includes(u.sub_status) && !u.cancel_at_period_end && !u.blocked).filter(u => { const e = u.sub_status === 'trialing' ? ts(u.trial_end) : ts(u.current_period_end); return e > n && e < n + 7 * DAY; }).reduce((s, u) => s + (u.plan === 'anual' ? S.settings.precioAnual : S.settings.precioMensual), 0);
+  const prox = ds.filter(u => ['active', 'trialing'].includes(u.sub_status) && !u.cancel_at_period_end && !u.blocked).filter(u => { const e = u.sub_status === 'trialing' ? ts(u.trial_end) : ts(u.current_period_end); return e > n && e < n + 7 * DAY; }).reduce((s, u) => s + precioDe(u), 0);
   const pruebasFin = ds.filter(u => u.sub_status === 'trialing' && ts(u.trial_end) > n && ts(u.trial_end) < n + 7 * DAY).length;
   const top = S.resources.slice().sort((x, y) => y.descargas - x.descargas).slice(0, 5);
   const pubMes = S.resources.filter(r => visible(r) && ts(r.publicado_at) >= m0.getTime()).slice(0, 5);
   return shell('Resumen', `${title('Resumen', 'Así va tu comunidad este mes.', '<a class="btn btn-o" href="#/admin/textos">Enviar aviso</a><a class="btn btn-y" href="#/admin/recurso/nuevo">Subir recurso</a>')}
-<section class="stack"><h2 style="font-size:24px">Suscriptoras</h2><div class="grid-s">${stat('Activas', cnt('activa') + cnt('cancelada') + cnt('pendiente'), 'Con plan pagado')}${stat('En prueba', cnt('prueba'), `${TRIAL_DAYS} días gratis`)}${stat('Plan mensual', ds.filter((u, i) => u.plan === 'mensual' && states[i].access).length)}${stat('Plan anual', ds.filter((u, i) => u.plan === 'anual' && states[i].access).length)}${stat('Sin plan o vencidas', cnt('sinplan') + cnt('vencida'))}${stat('Cancelaron la renovación', ds.filter(u => u.cancel_at_period_end).length)}</div></section>
+<section class="stack"><h2 style="font-size:24px">Suscriptoras</h2><div class="grid-s">${stat('Activas', cnt('activa') + cnt('cancelada') + cnt('pendiente'), 'Con plan pagado')}${stat('En prueba', cnt('prueba'), `${TRIAL_DAYS} días gratis`)}${stat('Plan Docente', ds.filter((u, i) => u.plan && (u.nivel || 'docente') === 'docente' && states[i].access).length, 'Mensual y anual')}${stat('Plan Autoridad Escolar', ds.filter((u, i) => u.plan && u.nivel === 'autoridad' && states[i].access).length, 'Mensual y anual')}${stat('Pago mensual', ds.filter((u, i) => u.plan === 'mensual' && states[i].access).length)}${stat('Pago anual', ds.filter((u, i) => u.plan === 'anual' && states[i].access).length)}${stat('Sin plan o vencidas', cnt('sinplan') + cnt('vencida'))}${stat('Cancelaron la renovación', ds.filter(u => u.cancel_at_period_end).length)}</div></section>
 <section class="stack"><h2 style="font-size:24px">Ingresos</h2><div class="grid-s">${stat('Ingresos del mes', money(ingresos), 'Cobros con tarjeta')}${stat('Próximos cobros (7 días)', money(prox), 'Renovaciones y fin de pruebas')}${stat('Pruebas que terminan esta semana', pruebasFin)}</div></section>
 <div class="grid"><section class="card"><div class="row">${ico('down', '#234386', 24)}<h3>Recursos más descargados</h3></div>${top.length ? `<ul class="list">${top.map(r => `<li><span style="font-weight:600">${esc(r.titulo)}</span><span class="muted">${r.descargas} ${r.descargas === 1 ? 'descarga' : 'descargas'}</span></li>`).join('')}</ul>` : '<p class="muted">Aún no subes recursos.</p>'}</section>
 <section class="card"><div class="row">${ico('star', '#234386', 24)}<h3>Publicados este mes</h3></div>${pubMes.length ? `<ul class="list">${pubMes.map(r => `<li><span style="font-weight:600">${esc(r.titulo)}</span><span class="muted">${fmtDate(r.publicado_at)}</span></li>`).join('')}</ul>` : '<p class="muted">Aún no publicas recursos este mes.</p>'}</section></div>`, true);
@@ -459,7 +493,7 @@ async function pgAdminRecursos() {
   let list = S.resources.slice();
   if (admF.estado !== 'Todos') list = list.filter(r => r.estado === map[admF.estado]);
   if (admF.q) list = list.filter(r => r.titulo.toLowerCase().includes(admF.q.toLowerCase()));
-  const rows = list.map(r => `<tr><td style="font-weight:700">${esc(r.titulo)}</td><td>${esc(r.categoria)}</td><td>${esc((r.grados || []).join(', '))}</td><td>${r.acceso === 'gratis' ? 'Gratis' : 'Suscripción'}</td><td>${estadoTag(r)}</td><td>${r.descargas}</td><td><div class="row" style="gap:8px;flex-wrap:nowrap"><a class="btn btn-o btn-sm" href="#/admin/recurso/${r.id}">Editar</a><button class="btn btn-o btn-sm" data-act="toggleHide" data-id="${r.id}">${r.estado === 'oculto' ? 'Mostrar' : 'Ocultar'}</button></div></td></tr>`).join('');
+  const rows = list.map(r => `<tr><td style="font-weight:700">${esc(r.titulo)}</td><td>${esc(r.categoria)}</td><td>${esc((r.grados || []).join(', '))}</td><td>${ACCESO_TXT[r.acceso] || r.acceso}</td><td>${estadoTag(r)}</td><td>${r.descargas}</td><td><div class="row" style="gap:8px;flex-wrap:nowrap"><a class="btn btn-o btn-sm" href="#/admin/recurso/${r.id}">Editar</a><button class="btn btn-o btn-sm" data-act="toggleHide" data-id="${r.id}">${r.estado === 'oculto' ? 'Mostrar' : 'Ocultar'}</button></div></td></tr>`).join('');
   return shell('Recursos', `${title('Recursos', 'Sube, revisa y publica los recursos del catálogo.', '<a class="btn btn-y" href="#/admin/recurso/nuevo">Subir recurso</a>')}
 <div class="card" style="gap:16px"><div class="field"><label for="br">Buscar recurso</label><input id="br" class="inp" type="search" value="${esc(admF.q)}" data-admq></div>
 <div class="row" style="gap:8px">${['Todos', 'Publicados', 'Borradores', 'Programados', 'Ocultos'].map(e => `<button class="chip${admF.estado === e ? ' on' : ''}" data-act="admEstado" data-v="${e}" aria-pressed="${admF.estado === e}">${e}</button>`).join('')}</div></div>
@@ -483,7 +517,7 @@ ${r.cover_path ? '<label class="chk"><input type="checkbox" name="quitar_portada
 <div class="field"><label for="rf">Campo formativo</label><select id="rf" name="campo" class="inp">${opt([...CAMPOS, 'No aplica'], r.campo || 'No aplica')}</select></div>
 <div class="field"><label for="rt">Formato</label><select id="rt" name="formato" class="inp">${opt(['PDF', 'Word', 'Herramienta en línea'], r.formato)}</select></div></div>
 <fieldset style="border:none;margin:0;padding:0"><legend class="lbl-t" style="padding:0;margin-bottom:6px">Grado</legend><div class="row" style="gap:20px">${GRADOS.map(g => `<label class="chk"><input type="checkbox" name="grados" value="${g}"${(r.grados || []).includes(g) ? ' checked' : ''}><span>${g}</span></label>`).join('')}</div></fieldset>
-<fieldset style="border:none;margin:0;padding:0"><legend class="lbl-t" style="padding:0;margin-bottom:6px">Acceso</legend><div class="row" style="gap:20px"><label class="chk"><input type="radio" name="acceso" value="suscripcion"${r.acceso !== 'gratis' ? ' checked' : ''}><span>Con suscripción</span></label><label class="chk"><input type="radio" name="acceso" value="gratis"${r.acceso === 'gratis' ? ' checked' : ''}><span>Gratis (muestra)</span></label></div></fieldset>
+<fieldset style="border:none;margin:0;padding:0"><legend class="lbl-t" style="padding:0;margin-bottom:6px">Acceso</legend><div class="row" style="gap:20px">${[['gratis', 'Gratis (muestra)'], ['suscripcion', 'Plan Docente y Autoridad'], ['autoridad', 'Solo Autoridad Escolar']].map(([v, t]) => `<label class="chk"><input type="radio" name="acceso" value="${v}"${(r.acceso || 'suscripcion') === v ? ' checked' : ''}><span>${t}</span></label>`).join('')}</div></fieldset>
 <label class="chk"><input type="checkbox" name="nuevo_mes"${r.nuevo_mes ? ' checked' : ''}><span>Mostrar en "Recursos nuevos del mes"</span></label>
 <div class="field" style="max-width:320px"><label for="rp">Fecha de publicación (para programar)</label><input id="rp" name="fecha_pub" class="inp" type="date" value="${esc(r.fecha_pub || '')}"></div>
 <p class="muted">Estado actual: ${r.id ? estadoTag(r) : '<span class="tag tag-a">Nuevo</span>'}</p>
@@ -498,14 +532,16 @@ async function pgAdminSubs() {
   const fm = { 'En prueba': 'prueba', Activas: 'activa', Canceladas: 'cancelada', 'Sin plan': 'sinplan', Vencidas: 'vencida', Bloqueadas: 'bloqueada' };
   let list = await docentes();
   if (subF.f === 'Mensual' || subF.f === 'Anual') list = list.filter(u => u.plan === subF.f.toLowerCase() && subState(u).access);
+  if (subF.f === 'Docente') list = list.filter(u => u.plan && (u.nivel || 'docente') === 'docente' && subState(u).access);
+  if (subF.f === 'Autoridad Escolar') list = list.filter(u => u.plan && u.nivel === 'autoridad' && subState(u).access);
   else if (subF.f !== 'Todas') list = list.filter(u => subState(u).key === fm[subF.f]);
   if (subF.q) list = list.filter(u => ((u.nombre || '') + ' ' + u.email).toLowerCase().includes(subF.q.toLowerCase()));
   const tag = k => ({ activa: 'tag-g', prueba: 'tag-b', cortesia: 'tag-b', cancelada: 'tag-a', vencida: 'tag-a', sinplan: 'tag-a', pendiente: 'tag-r', bloqueada: 'tag-r' }[k]);
   const fin = u => (u.sub_status === 'trialing' ? u.trial_end : u.current_period_end || u.courtesy_until);
-  const rows = list.map(u => { const st = subState(u); return `<tr><td style="font-weight:700">${esc(u.nombre || '—')}</td><td>${esc(u.email)}</td><td>${u.plan ? (u.plan === 'anual' ? 'Anual' : 'Mensual') : '—'}</td><td><span class="tag ${tag(st.key)}">${st.label}</span></td><td>${fmtDate(fin(u))}</td><td><a class="btn btn-o btn-sm" href="#/admin/suscriptora/${u.id}">Ver ficha</a></td></tr>`; }).join('');
+  const rows = list.map(u => { const st = subState(u); return `<tr><td style="font-weight:700">${esc(u.nombre || '—')}</td><td>${esc(u.email)}</td><td>${esc(u.plan ? planTxt(u) : '—')}</td><td><span class="tag ${tag(st.key)}">${st.label}</span></td><td>${fmtDate(fin(u))}</td><td><a class="btn btn-o btn-sm" href="#/admin/suscriptora/${u.id}">Ver ficha</a></td></tr>`; }).join('');
   return shell('Suscriptoras', `${title('Suscriptoras', 'Consulta a cada docente, su plan y su estado.')}
 <div class="card" style="gap:16px"><div class="field"><label for="bs">Buscar por nombre o correo</label><input id="bs" class="inp" type="search" value="${esc(subF.q)}" data-subq></div>
-<div class="row" style="gap:8px">${['Todas', 'En prueba', 'Activas', 'Mensual', 'Anual', 'Canceladas', 'Sin plan', 'Vencidas', 'Bloqueadas'].map(e => `<button class="chip${subF.f === e ? ' on' : ''}" data-act="subFil" data-v="${e}" aria-pressed="${subF.f === e}">${e}</button>`).join('')}</div></div>
+<div class="row" style="gap:8px">${['Todas', 'En prueba', 'Activas', 'Docente', 'Autoridad Escolar', 'Mensual', 'Anual', 'Canceladas', 'Sin plan', 'Vencidas', 'Bloqueadas'].map(e => `<button class="chip${subF.f === e ? ' on' : ''}" data-act="subFil" data-v="${e}" aria-pressed="${subF.f === e}">${e}</button>`).join('')}</div></div>
 <div class="tbox"><table class="tbl"><thead><tr><th>Docente</th><th>Correo</th><th>Plan</th><th>Estado</th><th>Vence</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="6">Aún no hay docentes con ese filtro.</td></tr>'}</tbody></table></div>`, true);
 }
 async function pgAdminSub(id) {
@@ -516,7 +552,7 @@ async function pgAdminSub(id) {
   const cort = must(await sb.from('cortesias').select('*').eq('user_id', id).order('fecha', { ascending: false })) || [];
   const ndl = (await sb.from('descargas').select('id', { count: 'exact', head: true }).eq('user_id', id)).count || 0;
   const st = subState(u);
-  const dat = [['Correo', u.email], ['Grado que atiende', u.grado || '—'], ['Fecha de alta', fmtDate(u.created_at)], ['Plan', u.plan ? (u.plan === 'anual' ? 'Anual' : 'Mensual') : '—'], ['Prueba termina', fmtDate(u.trial_end)], [u.cancel_at_period_end ? 'Acceso hasta' : 'Siguiente cobro', fmtDate(u.sub_status === 'trialing' ? u.trial_end : u.current_period_end)], ['Cortesía hasta', fmtDate(u.courtesy_until)], ['Descargas', ndl]];
+  const dat = [['Correo', u.email], ['Función', FUNCIONES[u.funcion] || '—'], ['Grado que atiende', u.grado || '—'], ['Fecha de alta', fmtDate(u.created_at)], ['Plan', u.plan ? planTxt(u) + ' · ' + money(precioDe(u)) : '—'], ...(u.nivel_siguiente ? [['Cambia en su renovación a', 'Plan ' + NIVEL_TXT[u.nivel_siguiente]]] : []), ['Prueba termina', fmtDate(u.trial_end)], [u.cancel_at_period_end ? 'Acceso hasta' : 'Siguiente cobro', fmtDate(u.sub_status === 'trialing' ? u.trial_end : u.current_period_end)], ['Cortesía hasta', fmtDate(u.courtesy_until)], ['Descargas', ndl]];
   return shell('Suscriptoras', `${title(esc(u.nombre || u.email), '', '<a class="btn btn-o" href="#/admin/suscriptoras">Volver a la lista</a>')}
 <section class="card" style="padding:28px;gap:20px"><div class="row between"><h2 style="font-size:24px">Datos y plan</h2><span class="tag ${st.key === 'bloqueada' ? 'tag-r' : st.key === 'activa' ? 'tag-g' : 'tag-b'}">${st.label}</span></div>
 <div class="grid"><ul class="list">${dat.map(([x, y]) => `<li><span>${x}</span><span style="font-weight:700">${esc(y)}</span></li>`).join('')}</ul>
@@ -542,13 +578,13 @@ async function pgAdminTextos() {
 <form class="card" style="padding:28px;gap:18px" data-form="aviso" novalidate><div class="row">${ico('chat', '#234386', 24)}<h2 style="font-size:26px">Enviar un aviso</h2></div>
 <div class="field"><label for="at">Título del aviso</label><input id="at" name="titulo" class="inp" placeholder="Ej. Ya están los recursos de diciembre" required></div>
 <div class="field"><label for="am">Mensaje</label><textarea id="am" name="mensaje" class="inp" required></textarea></div>
-<div class="field"><label for="ad">Enviar a</label><select id="ad" name="destino" class="inp">${opt(['Todas las suscriptoras', 'Solo en prueba', 'Solo plan mensual', 'Solo plan anual'])}</select></div>
+<div class="field"><label for="ad">Enviar a</label><select id="ad" name="destino" class="inp">${opt(['Todas las suscriptoras', 'Solo en prueba', 'Solo plan Docente', 'Solo plan Autoridad Escolar', 'Solo plan mensual', 'Solo plan anual'])}</select></div>
 <p class="muted">El aviso aparece en el panel de las docentes. El envío por correo se activará más adelante.</p>
 <p class="err" data-err hidden></p><div class="row"><button class="btn btn-y" type="submit">Publicar aviso</button></div>
 <h3 style="margin-top:8px">Avisos publicados</h3>${hist ? `<ul class="list">${hist}</ul>` : '<p class="muted">Aún no publicas avisos.</p>'}</form>
 <form class="card" style="padding:28px;gap:18px" data-form="textos" novalidate><h2 style="font-size:26px">Textos de la página</h2>
 <div class="field"><label for="mp">Mensaje principal de la portada</label><input id="mp" name="hero" class="inp" value="${esc(s.hero)}"></div>
-<div class="grid-s"><div class="field"><label for="pm">Precio mensual que se muestra (MXN)</label><input id="pm" name="precioMensual" class="inp" type="number" min="1" value="${s.precioMensual}"></div><div class="field"><label for="pa">Precio anual que se muestra (MXN)</label><input id="pa" name="precioAnual" class="inp" type="number" min="1" value="${s.precioAnual}"></div></div>
+<div class="grid-s">${[['docente', 'mensual', 'Docente mensual'], ['docente', 'anual', 'Docente anual'], ['autoridad', 'mensual', 'Autoridad Escolar mensual'], ['autoridad', 'anual', 'Autoridad Escolar anual']].map(([n, q, t]) => `<div class="field"><label for="p_${n}_${q}">Precio ${t} que se muestra (MXN)</label><input id="p_${n}_${q}" name="p_${n}_${q}" class="inp" type="number" min="1" step="0.01" value="${precios()[n][q]}"></div>`).join('')}</div>
 <p class="notice b" style="padding:12px 16px">Importante: el cobro real lo define el precio que tienes en Stripe. Si cambias un precio aquí, crea también el precio nuevo en Stripe y actualiza su clave en Netlify.</p>
 <h3>Contacto y redes</h3><div class="grid-s"><div class="field"><label for="wa">WhatsApp (10 dígitos)</label><input id="wa" name="whatsapp" class="inp" type="tel" value="${esc(s.whatsapp)}" placeholder="[TU WHATSAPP]"></div>
 ${Object.keys(s.redes || {}).map(k => `<div class="field"><label for="r${k}">${k}</label><input id="r${k}" name="red_${k}" class="inp" value="${esc(s.redes[k])}" placeholder="https://… enlace a tu perfil"></div>`).join('')}</div>
@@ -601,7 +637,7 @@ function forgotModal() {
 async function doDownload(id) {
   const r = S.resources.find(x => x.id === id); if (!r) return;
   if (!r.file_path) return toast('Este recurso todavía no tiene archivo.');
-  if (r.acceso !== 'gratis' && !hasAccess(S.profile)) return go(S.profile ? '#/panel/suscripcion' : '#/registro');
+  if (!canAcc(S.profile, r.acceso)) return go(S.profile ? '#/panel/suscripcion' : '#/registro');
   const { data, error } = await sb.storage.from('recursos').createSignedUrl(r.file_path, 120, { download: r.file_name || true });
   if (error || !data) return toast('No tienes acceso a este recurso o el archivo no está disponible.');
   if (!isAdmin(S.profile)) await sb.rpc('registrar_descarga', { rid: r.id });
@@ -634,8 +670,9 @@ async function onSubmit(ev) {
       if (!d.nombre || !d.nombre.trim()) return showErr(f, 'Escribe tu nombre.');
       if (!emailOk(email)) return showErr(f, 'Escribe un correo válido.');
       if ((d.pass || '').length < 8) return showErr(f, 'La contraseña debe tener al menos 8 caracteres.');
+      if (!FUNCIONES[d.funcion]) return showErr(f, 'Elige tu función.');
       if (!d.acepto) return showErr(f, 'Debes aceptar el aviso de privacidad y los términos.');
-      const { data, error } = await sb.auth.signUp({ email, password: d.pass, options: { data: { nombre: d.nombre.trim(), grado: d.grado || '' }, emailRedirectTo: back() + '?next=confirmado' } });
+      const { data, error } = await sb.auth.signUp({ email, password: d.pass, options: { data: { nombre: d.nombre.trim(), grado: d.grado || '', funcion: d.funcion }, emailRedirectTo: back() + '?next=confirmado' } });
       if (error) return showErr(f, authMsg(error));
       if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) return showErr(f, 'Ya existe una cuenta con ese correo. Inicia sesión.');
       if (data.session) { await claimDevice(); await loadProfile(); return go('#/panel/suscripcion'); }
@@ -671,7 +708,7 @@ async function onSubmit(ev) {
       if (cover && cover.size > 15 * 1024 * 1024) return showErr(f, 'La imagen de portada pesa más de 15 MB.');
       if (file && file.size > 50 * 1024 * 1024) return showErr(f, 'El archivo pesa más de 50 MB.');
       if (estado !== 'borrador' && d.formato !== 'Herramienta en línea' && !file && !(old && old.file_path)) return showErr(f, 'Sube el archivo del recurso antes de publicarlo.');
-      const row = { titulo: d.titulo.trim(), descripcion: (d.descripcion || '').trim(), categoria: d.categoria, campo: d.campo === 'No aplica' ? '' : d.campo, formato: d.formato, grados, acceso: d.acceso || 'suscripcion', nuevo_mes: !!d.nuevo_mes, estado, fecha_pub: d.fecha_pub || null };
+      const row = { titulo: d.titulo.trim(), descripcion: (d.descripcion || '').trim(), categoria: d.categoria, campo: d.campo === 'No aplica' ? '' : d.campo, formato: d.formato, grados, acceso: ACCESO_TXT[d.acceso] ? d.acceso : 'suscripcion', nuevo_mes: !!d.nuevo_mes, estado, fecha_pub: d.fecha_pub || null };
       if (estado === 'publicado' && !(old && old.estado === 'publicado')) row.publicado_at = new Date().toISOString();
       if (estado === 'programado') row.publicado_at = new Date(d.fecha_pub + 'T06:00:00Z').toISOString();
       if (file) {
@@ -710,9 +747,9 @@ async function onSubmit(ev) {
       must(await sb.from('avisos').insert({ titulo: d.titulo.trim(), mensaje: d.mensaje.trim(), destino: d.destino, panel: true, correo: false }), 'No se pudo publicar el aviso.');
       toast('Aviso publicado.'); render();
     } else if (kind === 'textos') {
-      const s = JSON.parse(JSON.stringify(S.settings)), pm = parseFloat(d.precioMensual), pa = parseFloat(d.precioAnual);
-      if (!(pm > 0) || !(pa > 0)) return showErr(f, 'Los precios deben ser mayores que cero.');
-      s.hero = (d.hero || '').trim() || s.hero; s.precioMensual = pm; s.precioAnual = pa; s.whatsapp = (d.whatsapp || '').trim();
+      const s = JSON.parse(JSON.stringify(S.settings)), pr = {};
+      for (const n of ['docente', 'autoridad']) { pr[n] = {}; for (const q of ['mensual', 'anual']) { const v = parseFloat(d[`p_${n}_${q}`]); if (!(v > 0)) return showErr(f, 'Los precios deben ser mayores que cero.'); pr[n][q] = v; } }
+      s.hero = (d.hero || '').trim() || s.hero; s.precios = pr; delete s.precioMensual; delete s.precioAnual; s.whatsapp = (d.whatsapp || '').trim();
       Object.keys(s.redes || {}).forEach(k => { s.redes[k] = (d['red_' + k] || '').trim(); });
       s.faq = (s.faq || []).map((_, i) => [(d['q' + i] || '').trim(), (d['a' + i] || '').trim()]).filter(([q]) => q);
       await saveSettings(s); toast('Cambios guardados.'); render();
@@ -758,7 +795,9 @@ async function onClick(ev) {
     if (act === 'filter') { catF[el.dataset.k] = el.dataset.v; return render(); }
     if (act === 'fav') { const p = S.profile; if (!p) return; const favs = (p.favoritos || []).slice(); const i = favs.indexOf(id); i >= 0 ? favs.splice(i, 1) : favs.push(id); must(await sb.from('profiles').update({ favoritos: favs }).eq('id', p.id)); p.favoritos = favs; toast(i >= 0 ? 'Quitado de favoritos.' : 'Guardado en favoritos.'); return render(); }
     if (act === 'closeAviso') { const p = S.profile; const c = (p.avisos_cerrados || []).concat(id); must(await sb.from('profiles').update({ avisos_cerrados: c }).eq('id', p.id)); p.avisos_cerrados = c; return render(); }
-    if (act === 'checkout' || act === 'portal') { el.disabled = true; toast('Abriendo la página segura de Stripe…'); const r = await api(act === 'checkout' ? '/api/checkout' : '/api/portal', { plan: el.dataset.plan }); location.href = r.url; return; }
+    if (act === 'checkout' || act === 'portal') { el.disabled = true; toast('Abriendo la página segura de Stripe…'); try { const r = await api(act === 'checkout' ? '/api/checkout' : '/api/portal', { nivel: el.dataset.nivel, periodo: el.dataset.periodo }); location.href = r.url; } finally { el.disabled = false; } return; }
+    if (act === 'cambiarPlan') { el.disabled = true; try { return avisoCambio(await api('/api/cambiar-plan', { nivel: el.dataset.nivel, vista: true })); } finally { el.disabled = false; } }
+    if (act === 'confirmarCambio') { el.disabled = true; try { const r = await api('/api/cambiar-plan', { nivel: el.dataset.nivel }); closeModal(); await loadProfile(); toast(r.tipo === 'bajar' ? 'Listo. El cambio se aplicará en tu siguiente renovación.' : r.tipo === 'conservar' ? 'Listo. Conservas tu plan actual.' : '¡Listo! Tu plan cambió.'); return render(); } finally { el.disabled = false; } }
     if (act === 'toggleHide') { const r = S.resources.find(x => x.id === id); const estado = r.estado === 'oculto' ? 'publicado' : 'oculto'; must(await sb.from('resources').update({ estado, ...(estado === 'publicado' && !r.publicado_at ? { publicado_at: new Date().toISOString() } : {}) }).eq('id', id)); return render(); }
     if (act === 'delRes') { const r = S.resources.find(x => x.id === id); if (!window.confirm('¿Eliminar "' + r.titulo + '"? No se puede deshacer.')) return; if (r.file_path) await sb.storage.from('recursos').remove([r.file_path]); if (r.cover_path) await sb.storage.from('portadas').remove([r.cover_path]); must(await sb.from('resources').delete().eq('id', id)); toast('Recurso eliminado.'); return go('#/admin/recursos'); }
     if (act === 'admEstado') { admF.estado = el.dataset.v; return render(); }

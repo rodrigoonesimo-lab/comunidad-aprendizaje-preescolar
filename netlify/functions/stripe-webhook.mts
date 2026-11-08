@@ -42,12 +42,13 @@ export default async (req: Request) => {
         const { data: p } = await db.from("profiles").select("id").eq("stripe_customer_id", customerId).maybeSingle()
         const line = inv.lines?.data?.[0] as (Stripe.InvoiceLineItem & { pricing?: { price_details?: { price?: string } } }) | undefined
         const priceId = (line?.price as Stripe.Price | null | undefined)?.id ?? line?.pricing?.price_details?.price
-        const plan = planFromPrice(priceId)
+        const pl = planFromPrice(priceId)
+        const plan = pl ? `${pl.nivel === "autoridad" ? "Autoridad Escolar" : "Docente"} ${pl.periodo}` : null
         await db.from("payments").upsert(
           {
             user_id: p?.id ?? null,
             monto: inv.amount_paid / 100,
-            concepto: inv.billing_reason === "subscription_cycle" ? `Renovación plan ${plan ?? ""}`.trim() : `Pago plan ${plan ?? ""}`.trim(),
+            concepto: inv.metadata?.concepto ? String(inv.metadata.concepto) : inv.billing_reason === "subscription_cycle" ? `Renovación plan ${plan ?? ""}`.trim() : `Pago plan ${plan ?? ""}`.trim(),
             stripe_invoice_id: inv.id,
             fecha: new Date((inv.status_transitions?.paid_at ?? inv.created) * 1000).toISOString(),
           },
