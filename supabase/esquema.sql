@@ -30,10 +30,25 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
+-- Configuración privada (no visible desde la página ni la API).
+-- IMPORTANTE: cambia el correo del administrador en la línea del INSERT antes de ejecutar,
+-- o actualízalo después con: update app_private.config set valor = 'tu@correo.com' where clave = 'admin_email';
+create schema if not exists app_private;
+revoke all on schema app_private from public, anon, authenticated;
+create table if not exists app_private.config (clave text primary key, valor text not null);
+revoke all on app_private.config from public, anon, authenticated;
+insert into app_private.config (clave, valor) values ('admin_email', 'CORREO_DEL_ADMINISTRADOR')
+  on conflict (clave) do nothing;
+create or replace function app_private.admin_email()
+returns text language sql stable security definer set search_path = app_private as $$
+  select lower(valor) from app_private.config where clave = 'admin_email';
+$$;
+revoke all on function app_private.admin_email() from public, anon, authenticated;
+
 -- Crear el perfil automáticamente al registrarse.
 -- El correo del administrador recibe el rol "admin".
 create or replace function public.handle_new_user()
-returns trigger language plpgsql security definer set search_path = public as $$
+returns trigger language plpgsql security definer set search_path = public, app_private as $$
 begin
   insert into public.profiles (id, email, nombre, grado, role)
   values (
@@ -41,7 +56,7 @@ begin
     lower(new.email),
     coalesce(new.raw_user_meta_data->>'nombre', ''),
     coalesce(new.raw_user_meta_data->>'grado', ''),
-    case when lower(new.email) = 'rodrigoonesimo@gmail.com' then 'admin' else 'docente' end
+    case when lower(new.email) = app_private.admin_email() then 'admin' else 'docente' end
   )
   on conflict (id) do nothing;
   return new;
@@ -283,12 +298,12 @@ grant execute on function public.admin_set_block(uuid, boolean, text) to authent
 
 -- ---------- Seguridad reforzada ----------
 create or replace function public.is_admin()
-returns boolean language sql stable security definer set search_path = public, auth as $$
+returns boolean language sql stable security definer set search_path = public, auth, app_private as $$
   select exists (
     select 1 from public.profiles p join auth.users u on u.id = p.id
     where p.id = auth.uid() and p.role = 'admin' and not p.blocked
       and u.email_confirmed_at is not null
-      and lower(u.email) = 'rodrigoonesimo@gmail.com'
+      and lower(u.email) = app_private.admin_email()
   );
 $$;
 alter table public.profiles add constraint profiles_nombre_len check (char_length(nombre) <= 120) not valid;

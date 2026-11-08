@@ -1,7 +1,7 @@
 // Da días de cortesía a una docente (solo administrador).
 // Si tiene un plan en Stripe, su siguiente cobro se recorre esos días.
 import type { Config } from "@netlify/functions"
-import { caller, json, stripe, syncSubscription, soloMismoSitio } from "../lib/lib.mts"
+import { caller, env, json, stripe, syncSubscription, soloMismoSitio } from "../lib/lib.mts"
 
 const DAY = 86400
 
@@ -10,7 +10,7 @@ export default async (req: Request) => {
   if (bloqueo) return bloqueo
   try {
     const who = await caller(req)
-    const adminOk = !!who && who.profile.role === "admin" && !who.profile.blocked && !!who.user.email_confirmed_at && who.user.email?.toLowerCase() === "rodrigoonesimo@gmail.com"
+    const adminOk = !!who && who.profile.role === "admin" && !who.profile.blocked && !!who.user.email_confirmed_at && who.user.email?.toLowerCase() === env("ADMIN_EMAIL").toLowerCase()
     if (!who || !adminOk) return json({ error: "Solo el administrador puede hacer esto." }, 403)
     const { userId, dias, motivo } = await req.json().catch(() => ({}))
     const n = parseInt(dias, 10)

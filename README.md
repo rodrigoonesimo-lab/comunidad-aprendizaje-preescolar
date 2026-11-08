@@ -30,9 +30,12 @@ Configúralas en **Project configuration › Environment variables**. Todas debe
 | `STRIPE_WEBHOOK_SECRET` | Stripe › Developers › Webhooks › tu endpoint › Signing secret (`whsec_…`) (**secreta**) |
 | `STRIPE_PRICE_MENSUAL` | Stripe › Product catalog › Plan mensual › ID del precio (`price_…`) |
 | `STRIPE_PRICE_ANUAL` | Stripe › Product catalog › Plan anual › ID del precio (`price_…`) |
+| `ADMIN_EMAIL` | Correo de la cuenta de administrador |
+| `SITE_URL` | Dirección pública del sitio, p. ej. `https://tu-sitio.netlify.app` |
+| `ALLOWED_ORIGINS` | (Opcional) Otros dominios permitidos, separados por comas |
 
 Después de cambiar una variable, vuelve a publicar el sitio (Deploys › Trigger deploy).
 
 ## Administrador
 
-La cuenta registrada con `rodrigoonesimo@gmail.com` recibe automáticamente el rol de administrador.
+El correo del administrador se guarda en la tabla privada `app_private.config` de Supabase (clave `admin_email`) y en la variable `ADMIN_EMAIL` de Netlify. Ninguna credencial está escrita en el código.

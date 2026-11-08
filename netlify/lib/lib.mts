@@ -68,14 +68,20 @@ export async function syncSubscription(sub: Stripe.Subscription) {
 }
 
 // ---------- CORS: solo se aceptan llamadas desde la propia página ----------
-const SITIO = "https://comunidad-aprendizaje-preescolar.netlify.app"
-const VISTAS_PREVIAS = /^https:\/\/[a-z0-9-]+--comunidad-aprendizaje-preescolar\.netlify\.app$/
+// La dirección del sitio viene de SITE_URL (o de la variable URL que Netlify pone sola).
+const sitio = () => (Netlify.env.get("SITE_URL") || Netlify.env.get("URL") || "").replace(/\/$/, "")
+function esVistaPrevia(origin: string): boolean {
+  const host = sitio().replace(/^https:\/\//, "")
+  if (!host.endsWith(".netlify.app")) return false
+  const nombre = host.slice(0, -".netlify.app".length)
+  return new RegExp(`^https://[a-z0-9-]+--${nombre.replace(/[^a-z0-9-]/g, "")}\\.netlify\\.app$`).test(origin)
+}
 
 export function origenPermitido(origin: string | null): boolean {
   if (!origin) return false
-  if (origin === SITIO) return true
+  if (sitio() && origin === sitio()) return true
   const extra = (Netlify.env.get("ALLOWED_ORIGINS") || "").split(",").map(s => s.trim()).filter(Boolean)
-  return extra.includes(origin) || VISTAS_PREVIAS.test(origin)
+  return extra.includes(origin) || esVistaPrevia(origin)
 }
 
 // Rechaza solicitudes de otros sitios y las verificaciones previas (OPTIONS).
