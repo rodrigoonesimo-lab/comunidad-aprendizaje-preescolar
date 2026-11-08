@@ -20,8 +20,8 @@ const TOOLS = [
   ['book', 'Diario de la educadora', 'Tu reflexión diaria sobre la jornada, siempre a la mano.']
 ];
 const CAT_STYLE = {
-  'Planeación y proyectos': ['plan', '#DCE7F2'], 'Evaluación y seguimiento': ['eval', '#DDE8DA'],
-  'Material imprimible': ['print', '#FBEBC2'], 'Formatos y familias': ['family', '#EDE7DA']
+  'Planeación y proyectos': ['plan', '#E4EAF5'], 'Evaluación y seguimiento': ['eval', '#E3F1E4'],
+  'Material imprimible': ['print', '#FFF1BF'], 'Formatos y familias': ['family', '#F3EBDD']
 };
 const SESS_KEY = 'cap_device_session';
 
@@ -118,7 +118,7 @@ function ico(n, color = 'currentColor', size = 26) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
 }
 function logo(w = 44, sep = '#FFFFFF') {
-  return `<svg width="${w}" height="${Math.round(w * .9)}" viewBox="0 0 200 180" aria-hidden="true"><path d="M24,80 L100,20 L176,80" fill="none" stroke="#1F4E79" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/><circle cx="68" cy="102" r="12" fill="#7FA77A"/><path d="M52,164 C52,122 84,122 84,164 Z" fill="#7FA77A"/><circle cx="132" cy="102" r="12" fill="#7FA77A"/><path d="M116,164 C116,122 148,122 148,164 Z" fill="#7FA77A"/><path d="M81,164 C81,110 119,110 119,164 Z" fill="#F2C14E" stroke="${sep}" stroke-width="5"/><circle cx="100" cy="90" r="14" fill="#F2C14E" stroke="${sep}" stroke-width="5"/></svg>`;
+  return `<svg width="${w}" height="${Math.round(w * .9)}" viewBox="0 0 200 180" aria-hidden="true"><path d="M24,80 L100,20 L176,80" fill="none" stroke="#234386" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/><circle cx="68" cy="102" r="12" fill="#7FA77A"/><path d="M52,164 C52,122 84,122 84,164 Z" fill="#7FA77A"/><circle cx="132" cy="102" r="12" fill="#7FA77A"/><path d="M116,164 C116,122 148,122 148,164 Z" fill="#7FA77A"/><path d="M81,164 C81,110 119,110 119,164 Z" fill="#FFC400" stroke="${sep}" stroke-width="5"/><circle cx="100" cy="90" r="14" fill="#FFC400" stroke="${sep}" stroke-width="5"/></svg>`;
 }
 function waLink() { const d = (S.settings.whatsapp || '').replace(/\D/g, ''); return d ? 'https://wa.me/' + (d.length === 10 ? '52' + d : d) : '#/'; }
 function waBtn(t) { return `<a class="wa" href="${waLink()}"${S.settings.whatsapp ? ' target="_blank" rel="noopener"' : ''}>${ico('chat', '#fff', 22)}<span>${t}</span></a>`; }
@@ -131,79 +131,109 @@ function header() {
     ? `<a class="btn btn-y" href="${isAdmin(p) ? '#/admin' : '#/panel'}">${isAdmin(p) ? 'Ir a mi panel de administrador' : 'Ir a mi panel'}</a>`
     : `<a class="btn btn-o" href="#/acceso">Iniciar sesión</a><a class="btn btn-y" href="#/registro">Prueba gratis ${TRIAL_DAYS} días</a>`;
   return `<header class="site-hd"><div class="wrap hd">
-<a class="brand" href="#/">${logo(46)}<b>Comunidad de Aprendizaje<br><span>Preescolar</span></b></a>
+<a class="brand" href="#/">${logo(46, "#FBF9F6")}<b>Comunidad de Aprendizaje<br><span>Preescolar</span></b></a>
 <nav class="nav" aria-label="Principal"><a href="#/catalogo">Recursos</a><a href="#/#herramientas">Herramientas</a><a href="#/#planes">Planes</a><a href="#/#preguntas">Preguntas</a></nav>
 <div class="row" style="gap:10px">${acts}</div></div></header>`;
 }
 function footer() {
   const redes = Object.entries(S.settings.redes || {}).map(([k, v]) => `<li>${safeUrl(v) ? `<a href="${esc(v)}" target="_blank" rel="noopener">${k}</a>` : `${k}: ${v ? esc(v) : '[TU USUARIO]'}`}</li>`).join('');
-  return `<footer class="ft"><div class="wrap stack" style="gap:32px">
+  return `${wave('#234386')}<footer class="ft">${sprig('#6AA8DC', 'width:140px;right:4%;top:-40px;transform:rotate(-14deg)', 'hide-m')}<div class="wrap stack" style="gap:36px;position:relative">
 <div class="grid" style="gap:32px">
-<div class="stack" style="gap:12px"><div class="row">${logo(52, '#163A5A')}<p style="font-family:Montserrat,sans-serif;font-weight:800;font-size:17px;color:#fff;line-height:1.2">Comunidad de Aprendizaje<br>Preescolar</p></div><p style="font-style:italic">Construimos juntos la escuela que soñamos.</p></div>
-<div class="stack" style="gap:10px"><p style="font-weight:700;color:#fff">La plataforma</p><ul><li><a href="#/catalogo">Recursos</a></li><li><a href="#/#herramientas">Herramientas en línea</a></li><li><a href="#/#planes">Planes y precios</a></li><li><a href="#/#preguntas">Preguntas frecuentes</a></li></ul></div>
-<div class="stack" style="gap:10px"><p style="font-weight:700;color:#fff">Síguenos</p><ul>${redes}</ul></div>
-<div class="stack" style="gap:10px"><p style="font-weight:700;color:#fff">Contacto</p><p>WhatsApp: ${esc(S.settings.whatsapp) || '[TU WHATSAPP]'}</p><p>Aviso de privacidad · Términos de uso</p></div>
+<div class="stack" style="gap:12px"><div class="row" style="gap:12px"><span style="background:#FBF9F6;border-radius:50%;padding:10px;display:inline-flex">${logo(48, '#FBF9F6')}</span><p style="font-family:var(--f-display);font-size:26px;line-height:.95;letter-spacing:.04em;color:#fff;text-transform:uppercase">Comunidad de Aprendizaje<br>Preescolar</p></div><p class="script" style="color:#FFC400;font-size:30px">Construimos juntos la escuela que soñamos.</p></div>
+<div class="stack" style="gap:12px"><p class="ft-t">La plataforma</p><ul><li><a href="#/catalogo">Recursos</a></li><li><a href="#/#herramientas">Herramientas en línea</a></li><li><a href="#/#planes">Planes y precios</a></li><li><a href="#/#preguntas">Preguntas frecuentes</a></li></ul></div>
+<div class="stack" style="gap:12px"><p class="ft-t">Síguenos</p><ul>${redes}</ul></div>
+<div class="stack" style="gap:12px"><p class="ft-t">Contacto</p><p>WhatsApp: ${esc(S.settings.whatsapp) || '[TU WHATSAPP]'}</p><p>Aviso de privacidad · Términos de uso</p></div>
 </div>
-<div class="row between" style="border-top:1px solid #3A5A7A;padding-top:20px;font-size:14px"><p>© ${new Date().getFullYear()} Comunidad de Aprendizaje Preescolar</p><p>${AUTHOR}</p></div>
+<div class="row between" style="border-top:1px solid rgba(255,255,255,.3);padding-top:20px;font-size:14px"><p>© ${new Date().getFullYear()} Comunidad de Aprendizaje Preescolar</p><p>${AUTHOR}</p></div>
 </div></footer>${waBtn('Escríbenos por WhatsApp')}`;
 }
 function resCard(r, ctx) {
-  const p = S.profile; const [icn, bg] = CAT_STYLE[r.categoria] || ['plan', '#DCE7F2'];
+  const p = S.profile; const [icn, bg] = CAT_STYLE[r.categoria] || ['plan', '#E4EAF5'];
   const free = r.acceso === 'gratis', can = free || hasAccess(p);
   const isFav = p && (p.favoritos || []).includes(r.id);
-  const fav = p && !isAdmin(p) ? `<button class="btn btn-o btn-sm" data-act="fav" data-id="${r.id}" aria-pressed="${!!isFav}">${ico('star', '#1F4E79', 18)}${isFav ? 'Quitar de favoritos' : 'Guardar'}</button>` : '';
+  const fav = p && !isAdmin(p) ? `<button class="btn btn-o btn-sm" data-act="fav" data-id="${r.id}" aria-pressed="${!!isFav}">${ico('star', '#234386', 18)}${isFav ? 'Quitar de favoritos' : 'Guardar'}</button>` : '';
   const badge = ctx === 'nuevo' ? '<span class="tag tag-b">Nuevo</span>' : (free ? '<span class="tag tag-y">Gratis</span>' : '<span class="tag tag-b">Con suscripción</span>');
   let act;
-  if (r.formato === 'Herramienta en línea') act = `<a class="btn btn-o" href="${p ? '#/panel/herramientas' : '#/registro'}">${ico('tools', '#1F4E79', 20)}Abrir herramienta</a>`;
-  else if (can) act = `<button class="btn btn-y" data-act="download" data-id="${r.id}">${ico('down', '#22303C', 20)}${free && !hasAccess(p) ? 'Descargar gratis' : 'Descargar'}</button>`;
-  else act = p ? `<a class="btn btn-o" href="#/panel/suscripcion">${ico('lock', '#1F4E79', 20)}Elige un plan para descargar</a>` : `<a class="btn btn-o" href="#/registro">${ico('lock', '#1F4E79', 20)}Ver con prueba gratis</a>`;
-  return `<article class="card"><div class="thumb" style="background:${bg}">${ico(icn, '#1F4E79', 44)}</div>
+  if (r.formato === 'Herramienta en línea') act = `<a class="btn btn-o" href="${p ? '#/panel/herramientas' : '#/registro'}">${ico('tools', '#234386', 20)}Abrir herramienta</a>`;
+  else if (can) act = `<button class="btn btn-y" data-act="download" data-id="${r.id}">${ico('down', '#1E2530', 20)}${free && !hasAccess(p) ? 'Descargar gratis' : 'Descargar'}</button>`;
+  else act = p ? `<a class="btn btn-o" href="#/panel/suscripcion">${ico('lock', '#234386', 20)}Elige un plan para descargar</a>` : `<a class="btn btn-o" href="#/registro">${ico('lock', '#234386', 20)}Ver con prueba gratis</a>`;
+  return `<article class="card"><div class="thumb" style="background:${bg}">${ico(icn, '#234386', 44)}</div>
 <div class="row" style="gap:8px">${badge}<span class="tag tag-g">${esc(r.categoria)}</span></div>
 <h3>${esc(r.titulo)}</h3>${r.descripcion ? `<p style="color:var(--tinta-suave)">${esc(r.descripcion)}</p>` : ''}
 <div class="meta"><span>Grado: ${esc((r.grados || []).join(', '))}</span>${r.campo ? `<span>Campo: ${esc(r.campo)}</span>` : ''}<span>Formato: ${esc(r.formato)}</span></div>
 <div class="row" style="margin-top:auto">${act}${fav}</div></article>`;
 }
-function heroIllus() {
-  return `<svg viewBox="0 0 520 420" style="width:100%;max-width:520px;height:auto;justify-self:center" role="img" aria-label="Ilustración: comunidad de educadoras y niños bajo el techo de la escuela">
-<rect x="20" y="40" width="480" height="360" rx="36" fill="#DDE8DA"/><circle cx="430" cy="100" r="34" fill="#F2C14E"/>
-<path d="M80,200 L260,70 L440,200" fill="none" stroke="#1F4E79" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="170" cy="226" r="26" fill="#7FA77A"/><path d="M136,336 C136,256 204,256 204,336 Z" fill="#7FA77A"/>
-<circle cx="350" cy="226" r="26" fill="#7FA77A"/><path d="M316,336 C316,256 384,256 384,336 Z" fill="#7FA77A"/>
-<path d="M222,336 C222,232 298,232 298,336 Z" fill="#F2C14E" stroke="#DDE8DA" stroke-width="8"/><circle cx="260" cy="206" r="30" fill="#F2C14E" stroke="#DDE8DA" stroke-width="8"/>
-<rect x="60" y="250" width="54" height="70" rx="8" fill="#fff"/><path d="M72,270h30M72,284h30M72,298h20" stroke="#1F4E79" stroke-width="5" stroke-linecap="round"/>
-<rect x="404" y="244" width="62" height="62" rx="12" fill="#1F4E79"/><path d="M420,276l10,10 20,-20" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+/* ---------- Decoración: ondas, manchas orgánicas y líneas botánicas ---------- */
+function wave(fill, top) {
+  return `<svg class="wave${top ? ' wave-top' : ''}" viewBox="0 0 1440 90" preserveAspectRatio="none" aria-hidden="true"><path d="M0,58 C160,20 300,8 470,30 C640,52 760,88 940,70 C1110,52 1250,14 1440,34 L1440,90 L0,90 Z" fill="${fill}"/></svg>`;
 }
-
+const BLOBS = [
+  'M66,-58C84,-38,94,-10,89,16C84,42,64,66,38,78C12,90,-20,90,-46,77C-72,64,-92,38,-94,10C-96,-18,-80,-48,-56,-66C-32,-84,0,-90,24,-86C48,-82,48,-78,66,-58Z',
+  'M58,-70C74,-56,84,-34,88,-10C92,14,90,40,74,58C58,76,30,86,2,84C-26,82,-52,68,-70,48C-88,28,-98,0,-92,-26C-86,-52,-64,-72,-40,-82C-16,-92,10,-92,30,-86C42,-82,46,-80,58,-70Z'
+];
+function blob(fill, i, style) { return `<svg class="deco" viewBox="-100 -100 200 200" style="${style}" aria-hidden="true"><path d="${BLOBS[i % 2]}" fill="${fill}"/></svg>`; }
+// Rama botánica de línea (sin relleno), estilo grabado.
+function sprig(color, style, cls = '') {
+  return `<svg class="deco ${cls}" viewBox="0 0 160 220" style="${style}" fill="none" stroke="${color}" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M80 214 C78 170 82 120 76 70 C72 40 80 18 92 4"/>
+<path d="M78 180 C58 172 40 176 26 190 C44 196 62 194 78 180Z"/><path d="M78 180 C66 182 50 186 32 189"/>
+<path d="M79 150 C100 138 120 140 136 152 C118 162 98 162 79 150Z"/><path d="M79 150 C96 150 114 151 132 152"/>
+<path d="M77 118 C58 104 40 104 24 114 C40 126 60 128 77 118Z"/><path d="M77 118 C62 116 44 115 28 114"/>
+<path d="M76 88 C94 72 112 70 128 78 C114 92 94 96 76 88Z"/><path d="M76 88 C92 84 110 80 124 78"/>
+<path d="M78 56 C64 42 50 40 38 46 C48 60 64 64 78 56Z"/><path d="M78 56 C66 52 52 48 42 47"/>
+<path d="M86 26 C96 14 108 12 118 16 C110 28 98 32 86 26Z"/>
+<circle cx="92" cy="5" r="2.5"/></svg>`;
+}
+// Lápiz y crayón de línea.
+function pencil(color, style, cls = '') {
+  return `<svg class="deco ${cls}" viewBox="0 0 220 60" style="${style}" fill="none" stroke="${color}" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true">
+<path d="M14 30 L44 16 H186 a6 6 0 0 1 6 6 V38 a6 6 0 0 1 -6 6 H44 Z"/><path d="M14 30 L26 24 V36 Z"/><path d="M44 16 V44 M170 16 V44 M178 16 V44"/>
+<path d="M50 24 H164 M50 30 H164 M50 36 H164" stroke-dasharray="2 5"/></svg>`;
+}
+function heroArt() {
+  return `<div class="hero-art">
+${blob('#FFC400', 0, 'width:78%;left:-6%;top:-4%')}${blob('#A2D3A6', 1, 'width:66%;right:-8%;bottom:-6%')}
+${sprig('#6AA8DC', 'width:32%;right:-2%;top:-10%;transform:rotate(12deg)', 'hide-m')}
+<svg viewBox="0 0 520 440" style="position:relative;width:100%;height:auto" role="img" aria-label="Ilustración: comunidad de educadoras y niños bajo el techo de la escuela">
+<path d="M70,200 L260,62 L450,200" fill="none" stroke="#234386" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="168" cy="230" r="28" fill="#7FA77A"/><path d="M132,350 C132,262 204,262 204,350 Z" fill="#7FA77A"/>
+<circle cx="352" cy="230" r="28" fill="#7FA77A"/><path d="M316,350 C316,262 388,262 388,350 Z" fill="#7FA77A"/>
+<path d="M218,350 C218,238 302,238 302,350 Z" fill="#FFC400" stroke="#FBF9F6" stroke-width="9"/><circle cx="260" cy="206" r="32" fill="#FFC400" stroke="#FBF9F6" stroke-width="9"/>
+<path d="M60,352 C160,340 360,340 460,352" fill="none" stroke="#234386" stroke-width="1.5"/>
+<g fill="none" stroke="#234386" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="404" y="262" width="58" height="76" rx="4" fill="#fff"/><path d="M416 282h34M416 296h34M416 310h22"/><path d="M58 300 l26 -16 l18 30 l-26 16 Z" fill="#fff"/><path d="M84 284 l12 -8 l18 30 l-12 8"/></g></svg>
+${pencil('#234386', 'width:44%;left:2%;bottom:-6%;transform:rotate(-8deg)', 'hide-m')}</div>`;
+}
 /* ================= PÁGINAS PÚBLICAS ================= */
 async function pgInicio() {
   await loadResources();
   const s = S.settings, pm = s.precioMensual, pa = s.precioAnual;
   const ahorro = Math.max(0, pm * 12 - pa), mesEq = Math.round(pa / 12);
   const descs = { 'Planeación y proyectos': 'Proyectos comunitarios, escolares y de aula listos para adaptar a tu grupo, y apoyo para tu plan analítico.', 'Evaluación y seguimiento': 'Listas de cotejo, rúbricas y formatos para registrar avances y elaborar reportes.', 'Material imprimible': 'Fichas de grafomotricidad, conteo, lectoescritura, emociones y efemérides.', 'Formatos y familias': 'Documentos administrativos, minutas de CTE, circulares y mensajes para madres y padres.' };
-  const cats = CATS.map(c => { const [i, bg] = CAT_STYLE[c]; return `<article class="card"><div class="ic" style="background:${bg}">${ico(i, '#1F4E79')}</div><h3>${c}</h3><p style="color:var(--tinta-suave)">${descs[c]}</p><a href="#/catalogo?cat=${encodeURIComponent(c)}" style="font-weight:700;margin-top:auto">Ver recursos</a></article>`; }).join('');
+  const cats = CATS.map(c => { const [i, bg] = CAT_STYLE[c]; return `<article class="card"><div class="ic" style="background:${bg}">${ico(i, '#234386')}</div><h3>${c}</h3><p style="color:var(--tinta-suave)">${descs[c]}</p><a href="#/catalogo?cat=${encodeURIComponent(c)}" class="eyebrow" style="margin-top:auto;text-decoration:none">Ver recursos →</a></article>`; }).join('');
   const free = publicRes().filter(r => r.acceso === 'gratis').slice(0, 3).map(r => resCard(r)).join('') || '<p class="empty">Muy pronto habrá recursos gratuitos para descargar.</p>';
-  const tools = TOOLS.map(([i, t, d]) => `<article class="card" style="background:#24557F;border-color:#3A6A93"><div class="ic" style="background:#F2C14E">${ico(i, '#22303C')}</div><h3>${t}</h3><p style="color:#E6EEF5">${d}</p></article>`).join('');
+  const tools = TOOLS.map(([i, t, d]) => `<article class="card"><div class="ic" style="background:#FFF1BF">${ico(i, '#234386')}</div><h3>${t}</h3><p style="color:var(--tinta-suave)">${d}</p></article>`).join('');
   const feats = ['Todos los recursos descargables (PDF y Word)', 'Las herramientas en línea', 'Recursos nuevos cada mes', 'Para 1°, 2° y 3° de preescolar'].map(f => `<li>${ico('ok', '#3F6B3B', 22)}<span>${f}</span></li>`).join('');
   const faq = (s.faq || []).map(([q, a]) => `<details><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join('');
-  const steps = [[1, 'Crea tu cuenta', 'Tu nombre, tu correo y una contraseña. Confirma tu correo.'], [2, 'Elige tu plan', 'Registra tu tarjeta. No se cobra nada durante la prueba.'], [3, `Usa todo ${TRIAL_DAYS} días gratis`, 'Si no cancelas antes, se hace el primer cobro de tu plan.']].map(([n, t, d]) => `<div class="card"><div class="num">${n}</div><h3>${t}</h3><p style="color:var(--tinta-suave)">${d}</p></div>`).join('');
+  const steps = [[1, 'Crea tu cuenta', 'Tu nombre, tu correo y una contraseña. Confirma tu correo.'], [2, 'Elige tu plan', 'Registra tu tarjeta. No se cobra nada durante la prueba.'], [3, `Usa todo ${TRIAL_DAYS} días gratis`, 'Si no cancelas antes, se hace el primer cobro de tu plan.']].map(([n, t, d]) => `<div class="stack" style="gap:14px"><div class="num">${n}</div><h3>${t}</h3><p style="color:var(--tinta-suave)">${d}</p></div>`).join('');
   return `${header()}<main id="inicio">
-<section class="wrap hero"><div class="stack" style="gap:20px">
+<section class="wrap hero"><div class="stack" style="gap:22px">
 <span class="eyebrow">Para educadoras de 1°, 2° y 3° de preescolar</span>
 <h1>${esc(s.hero)}</h1>
+<p class="script">Construimos juntos la escuela que soñamos.</p>
 <p class="lead">Recursos y herramientas en línea alineados a la Nueva Escuela Mexicana, pensados para el trabajo diario en el Jardín de Niños.</p>
-<div class="row"><a class="btn btn-y" href="#/registro" style="font-size:17px;padding:12px 24px">Prueba gratis ${TRIAL_DAYS} días</a><a class="btn btn-o" href="#/#gratis">Ver recursos gratuitos</a></div>
-<p class="muted">Cancela cuando quieras desde tu cuenta.</p></div>${heroIllus()}</section>
-<section id="recursos" class="sec" style="background:#fff"><div class="wrap"><div class="sec-h"><span class="eyebrow">Catálogo</span><h2>Todo lo que usas en el aula, en un solo lugar</h2><p class="lead">Busca por grado, campo formativo y tipo de recurso.</p></div><div class="grid">${cats}</div><div style="margin-top:28px"><a class="btn btn-b" href="#/catalogo">Ver el catálogo completo</a></div></div></section>
-<section id="gratis" class="sec"><div class="wrap"><div class="sec-h"><span class="eyebrow">Prueba sin registrarte</span><h2>Recursos gratuitos para empezar</h2><p class="lead">Descárgalos y conoce la calidad de nuestros materiales.</p></div><div class="grid">${free}</div></div></section>
-<section id="herramientas" class="sec band"><div class="wrap"><div class="sec-h"><span class="eyebrow" style="color:#F2C14E">Herramientas en línea</span><h2>Llena, guarda y consulta desde tu celular</h2><p style="font-size:19px;color:#E6EEF5">Además de los recursos para descargar, tendrás herramientas que trabajan contigo.</p></div><div class="grid">${tools}</div></div></section>
-<section class="sec" style="background:#fff"><div class="wrap"><div class="sec-h"><span class="eyebrow">Así de fácil</span><h2>Empieza hoy en tres pasos</h2></div><div class="grid">${steps}</div></div></section>
-<section id="planes" class="sec"><div class="wrap"><div class="sec-h"><span class="eyebrow">Planes y precios</span><h2>Un precio, acceso a todo</h2><p class="lead">Los dos planes incluyen lo mismo y empiezan con ${TRIAL_DAYS} días gratis.</p></div>
-<div class="grid" style="max-width:860px">
-<article class="card" style="padding:32px;gap:18px"><h3>Mensual</h3><p class="price">${money(pm)} <small>MXN al mes</small></p><p style="color:var(--tinta-suave)">Paga mes a mes y cancela cuando quieras.</p><ul class="feat">${feats}</ul><a class="btn btn-o" href="#/registro" style="margin-top:auto">Empezar prueba gratis</a></article>
-<article class="card" style="padding:32px;gap:18px;border:3px solid var(--azul)"><div class="row between"><h3>Anual</h3>${ahorro ? `<span class="tag tag-y">Ahorras ${money(ahorro)}</span>` : ''}</div><p class="price">${money(pa)} <small>MXN al año</small></p><p style="color:var(--tinta-suave)">Equivale a ${money(mesEq)} al mes. 12 meses desde tu primer cobro.</p><ul class="feat">${feats}</ul><a class="btn btn-y" href="#/registro" style="margin-top:auto">Empezar prueba gratis</a></article>
+<div class="row"><a class="btn btn-y" href="#/registro">Prueba gratis ${TRIAL_DAYS} días</a><a class="btn btn-o" href="#/#gratis">Ver recursos gratuitos →</a></div>
+<p class="muted">Cancela cuando quieras desde tu cuenta.</p></div>${heroArt()}</section>
+${wave('#FFFFFF')}<section id="recursos" class="sec" style="background:#fff;padding-top:48px">${sprig('#234386', 'width:120px;left:-20px;top:20px;transform:rotate(-10deg)', 'hide-m')}<div class="wrap"><div class="sec-h"><span class="eyebrow">Catálogo</span><h2>Todo lo que usas en el aula, en un solo lugar</h2><p class="lead">Busca por grado, campo formativo y tipo de recurso.</p></div><div class="grid">${cats}</div><div style="margin-top:32px"><a class="btn btn-b" href="#/catalogo">Ver el catálogo completo</a></div></div></section>
+${wave('#FFFFFF', true)}<section id="gratis" class="sec">${blob('#A2D3A6', 1, 'width:260px;right:-90px;top:30px;opacity:.55')}<div class="wrap"><div class="sec-h"><span class="eyebrow">Prueba sin registrarte</span><h2>Recursos gratuitos para empezar</h2><p class="lead">Descárgalos y conoce la calidad de nuestros materiales.</p></div><div class="grid">${free}</div></div></section>
+${wave('#CF5C14')}<section id="herramientas" class="sec band-o" style="padding-top:40px">${pencil('#FFFFFF', 'width:240px;right:3%;top:28px;opacity:.6;transform:rotate(6deg)', 'hide-m')}<div class="wrap"><div class="sec-h"><span class="eyebrow">Herramientas en línea</span><h2>Llena, guarda y consulta desde tu celular</h2><p style="font-size:18px">Además de los recursos para descargar, tendrás herramientas que trabajan contigo.</p></div><div class="grid">${tools}</div></div></section>
+${wave('#CF5C14', true)}<section class="sec">${sprig('#6AA8DC', 'width:110px;right:6%;top:40px;transform:rotate(16deg)', 'hide-m')}<div class="wrap"><div class="sec-h"><span class="eyebrow">Así de fácil</span><h2>Empieza hoy en tres pasos</h2></div><div class="grid">${steps}</div></div></section>
+${wave('#FFFFFF')}<section id="planes" class="sec" style="background:#fff;padding-top:48px">${blob('#FFC400', 0, 'width:300px;left:-120px;bottom:40px;opacity:.5')}<div class="wrap"><div class="sec-h"><span class="eyebrow">Planes y precios</span><h2>Un precio, acceso a todo</h2><p class="lead">Los dos planes incluyen lo mismo y empiezan con ${TRIAL_DAYS} días gratis.</p></div>
+<div class="grid" style="max-width:880px">
+<article class="card" style="padding:36px;gap:18px"><h3 class="eyebrow">Mensual</h3><p class="price">${money(pm)} <small>MXN al mes</small></p><p style="color:var(--tinta-suave)">Paga mes a mes y cancela cuando quieras.</p><ul class="feat">${feats}</ul><a class="btn btn-o" href="#/registro" style="margin-top:auto">Empezar prueba gratis</a></article>
+<article class="card" style="padding:36px;gap:18px;outline:2px solid var(--indigo);outline-offset:-2px"><div class="row between"><h3 class="eyebrow">Anual</h3>${ahorro ? `<span class="tag tag-y">Ahorras ${money(ahorro)}</span>` : ''}</div><p class="price">${money(pa)} <small>MXN al año</small></p><p style="color:var(--tinta-suave)">Equivale a ${money(mesEq)} al mes. 12 meses desde tu primer cobro.</p><ul class="feat">${feats}</ul><a class="btn btn-y" href="#/registro" style="margin-top:auto">Empezar prueba gratis</a></article>
 </div><div class="row" style="margin-top:24px;color:var(--tinta-suave)">${ico('card', '#4A5661', 22)}<span>Pago seguro con tarjeta de crédito o débito. Se renueva solo y puedes cancelar cuando quieras.</span></div></div></section>
-<section id="preguntas" class="sec" style="background:#fff"><div class="wrap" style="max-width:860px"><div class="sec-h"><span class="eyebrow">Preguntas frecuentes</span><h2>Resolvemos tus dudas</h2></div><div class="stack" style="gap:12px">${faq}</div></div></section>
-<section class="sec band"><div class="wrap stack" style="align-items:flex-start;gap:18px"><h2>Construimos juntos la escuela que soñamos.</h2><p style="font-size:19px;color:#E6EEF5;max-width:640px">Únete a la comunidad y prueba todo gratis durante ${TRIAL_DAYS} días.</p><a class="btn btn-y" href="#/registro" style="font-size:17px;padding:12px 24px">Prueba gratis ${TRIAL_DAYS} días</a></div></section>
+${wave('#FFFFFF', true)}<section id="preguntas" class="sec"><div class="wrap" style="max-width:880px"><div class="sec-h"><span class="eyebrow">Preguntas frecuentes</span><h2>Resolvemos tus dudas</h2></div><div class="faq">${faq}</div></div></section>
+<section class="sec" style="padding-top:24px"><div class="wrap"><div class="card" style="padding:48px 36px;align-items:flex-start;gap:16px;overflow:hidden">${blob('#FFC400', 1, 'width:260px;right:-60px;top:-80px;opacity:.9')}${sprig('#234386', 'width:110px;right:40px;bottom:-30px;transform:rotate(8deg)', 'hide-m')}<h2 style="position:relative;max-width:640px">Únete a la comunidad</h2><p class="script" style="position:relative">Construimos juntos la escuela que soñamos.</p><p class="lead" style="position:relative;max-width:560px">Prueba todos los recursos gratis durante ${TRIAL_DAYS} días.</p><a class="btn btn-y" href="#/registro" style="position:relative">Prueba gratis ${TRIAL_DAYS} días</a></div></div></section>
 </main>${footer()}`;
 }
 
@@ -246,11 +276,11 @@ ${chips('cat', ['Todas', ...CATS], catF.cat, 'Categoría')}
 }
 
 function accesoShell(inner) {
-  const incl = ['Todos los recursos para descargar', 'Las herramientas en línea', 'Recursos nuevos cada mes', 'Cancela cuando quieras'].map(f => `<li>${ico('ok', '#F2C14E', 22)}<span>${f}</span></li>`).join('');
+  const incl = ['Todos los recursos para descargar', 'Las herramientas en línea', 'Recursos nuevos cada mes', 'Cancela cuando quieras'].map(f => `<li>${ico('ok', '#FFC400', 22)}<span>${f}</span></li>`).join('');
   return `${header()}<main class="wrap" style="padding-top:48px;padding-bottom:72px">
 <div style="display:grid;gap:32px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));align-items:start">
-<section class="band stack" style="border-radius:24px;padding:40px;gap:20px"><div style="background:#FAF7F0;border-radius:20px;padding:18px;align-self:flex-start">${logo(96, '#FAF7F0')}</div>
-<h2>Tu prueba gratis de ${TRIAL_DAYS} días incluye</h2><ul class="feat" style="font-size:17px">${incl}</ul>
+<section class="band stack" style="border-radius:8px;padding:40px;gap:20px;position:relative;overflow:hidden">${sprig('#6AA8DC', 'width:120px;right:-10px;bottom:-20px;opacity:.7')}<div style="background:#FBF9F6;border-radius:50%;padding:18px;align-self:flex-start">${logo(96, '#FBF9F6')}</div>
+<h2>Tu prueba gratis de ${TRIAL_DAYS} días incluye</h2><p class="script" style="color:#FFC400;font-size:30px">Construimos juntos la escuela que soñamos.</p><ul class="feat" style="font-size:17px">${incl}</ul>
 <p style="color:#E6EEF5">Después: mensual ${money(S.settings.precioMensual)} o anual ${money(S.settings.precioAnual)}.</p></section>
 <section class="card" style="padding:32px;gap:18px">${inner}</section></div></main>${footer()}`;
 }
@@ -293,19 +323,19 @@ function shell(active, content, admin) {
   const items = admin
     ? [['home', 'Resumen', '#/admin'], ['book', 'Recursos', '#/admin/recursos'], ['users', 'Suscriptoras', '#/admin/suscriptoras'], ['chat', 'Textos y avisos', '#/admin/textos'], ['tools', 'Herramientas', '#/admin/herramientas']]
     : [['home', 'Inicio', '#/panel'], ['book', 'Recursos', '#/catalogo'], ['tools', 'Herramientas', '#/panel/herramientas'], ['star', 'Favoritos', '#/panel/favoritos'], ['down', 'Descargas', '#/panel/descargas'], ['card', 'Mi suscripción', '#/panel/suscripcion']];
-  const side = items.map(([i, t, h]) => `<a href="${h}"${t === active ? ' class="on" aria-current="page"' : ''}>${ico(i, t === active ? '#1F4E79' : '#22303C', 22)}<span>${t}</span></a>`).join('');
+  const side = items.map(([i, t, h]) => `<a href="${h}"${t === active ? ' class="on" aria-current="page"' : ''}>${ico(i, t === active ? '#234386' : '#1E2530', 22)}<span>${t}</span></a>`).join('');
   return `<div class="app"><aside class="side" aria-label="Menú de la cuenta">
 <a class="brand" href="#/" style="padding:4px 8px 4px;min-height:0">${logo(40)}<b class="lbl" style="font-size:15px">Comunidad de Aprendizaje<br><span>Preescolar</span></b></a>
 <p class="side-role">${admin ? 'Administrador' : esc((p.nombre || p.email).split(' ')[0])}</p>${side}
-<a href="#/" style="margin-top:auto">${ico('eye', '#22303C', 22)}<span>Ver la página</span></a>
-<button class="lnk" data-act="logout">${ico('out', '#22303C', 22)}<span>Cerrar sesión</span></button></aside>
+<a href="#/" style="margin-top:auto">${ico('eye', '#1E2530', 22)}<span>Ver la página</span></a>
+<button class="lnk" data-act="logout">${ico('out', '#1E2530', 22)}<span>Cerrar sesión</span></button></aside>
 <main class="main">${content}<p class="muted" style="border-top:1px solid var(--borde);padding-top:16px">${AUTHOR}</p></main></div>${admin ? '' : waBtn('Ayuda por WhatsApp')}`;
 }
 function title(t, sub, btns = '') { return `<div class="row between" style="align-items:flex-end"><div class="stack" style="gap:6px"><h1 style="font-size:clamp(28px,3.5vw,38px)">${t}</h1>${sub ? `<p class="lead">${sub}</p>` : ''}</div><div class="row">${btns}</div></div>`; }
 function needUser() { const p = S.profile; if (!p) { go('#/acceso'); return null; } if (isAdmin(p)) { go('#/admin'); return null; } return p; }
 function subBanner(p) {
   const st = subState(p);
-  const h = t => `<p style="font-family:Montserrat,sans-serif;font-weight:800;font-size:20px">${t}</p>`;
+  const h = t => `<p style="font-family:var(--f-display);font-size:30px;letter-spacing:.03em;color:var(--indigo);line-height:1">${t}</p>`;
   if (st.key === 'sinplan') return `<section class="notice">${`<div class="stack" style="gap:4px">${h(p.trial_used ? 'Elige tu plan para continuar' : `Elige tu plan para empezar tus ${TRIAL_DAYS} días gratis`)}<p>${p.trial_used ? 'Contrata tu plan para descargar recursos y usar las herramientas.' : 'Registras tu tarjeta, pero no se cobra nada durante la prueba.'}</p></div>`}<a class="btn btn-b" href="#/panel/suscripcion">Elegir mi plan</a></section>`;
   if (st.key === 'prueba') { const d = daysLeft(p.trial_end); return `<section class="notice"><div class="stack" style="gap:4px">${h(`Te ${d === 1 ? 'queda 1 día' : `quedan ${d} días`} de prueba gratis`)}<p>${p.cancel_at_period_end ? 'Cancelaste tu plan: no se te cobrará.' : `El ${fmtDate(p.trial_end)} se hará el primer cobro de tu plan ${esc(p.plan || '')}.`}</p></div><a class="btn btn-o" href="#/panel/suscripcion">Ver mi suscripción</a></section>`; }
   if (st.key === 'pendiente') return `<section class="notice r"><div class="stack" style="gap:4px">${h('No pudimos cobrar tu plan')}<p>Actualiza tu tarjeta para no perder el acceso.</p></div><button class="btn btn-b" data-act="portal">Actualizar tarjeta</button></section>`;
@@ -329,7 +359,7 @@ async function pgPanel(params) {
     .filter(a => a.destino === 'Todas las suscriptoras' || (a.destino === 'Solo en prueba' && st.key === 'prueba') || (a.destino === 'Solo plan mensual' && p.plan === 'mensual') || (a.destino === 'Solo plan anual' && p.plan === 'anual')).slice(0, 3);
   const dls = await myDescargas(5);
   const byId = id => S.resources.find(r => r.id === id);
-  const tools = TOOLS.map(([i, t]) => `<a class="card" href="#/panel/herramientas" style="text-decoration:none;padding:18px;gap:10px"><div class="ic" style="background:#DCE7F2;width:44px;height:44px">${ico(i, '#1F4E79', 22)}</div><span style="font-weight:700;color:var(--tinta)">${t}</span></a>`).join('');
+  const tools = TOOLS.map(([i, t]) => `<a class="card" href="#/panel/herramientas" style="text-decoration:none;padding:18px;gap:10px"><div class="ic" style="background:#E4EAF5;width:44px;height:44px">${ico(i, '#234386', 22)}</div><span style="font-weight:700;color:var(--tinta)">${t}</span></a>`).join('');
   const nuevos = publicRes().filter(r => r.nuevo_mes).slice(0, 4).map(r => resCard(r, 'nuevo')).join('') || '<p class="empty">Este mes aún no hay recursos nuevos.</p>';
   const favs = (p.favoritos || []).map(byId).filter(Boolean).slice(0, 5);
   const av = avisos.map(a => `<section class="notice b"><div class="stack" style="gap:4px"><p style="font-weight:800">${esc(a.titulo)}</p><p>${esc(a.mensaje)}</p></div><button class="btn btn-o btn-sm" data-act="closeAviso" data-id="${a.id}">Cerrar aviso</button></section>`).join('');
@@ -338,8 +368,8 @@ ${av}${subBanner(p)}
 <section class="stack"><h2 style="font-size:26px">Herramientas en línea</h2><div class="grid-s">${tools}</div></section>
 <section class="stack"><div class="row between"><h2 style="font-size:26px">Recursos nuevos del mes</h2><a href="#/catalogo" style="font-weight:700">Ver todos</a></div><div class="grid">${nuevos}</div></section>
 <div class="grid">
-<section class="card"><div class="row">${ico('star', '#1F4E79', 24)}<h3>Mis favoritos</h3></div>${favs.length ? `<ul class="list">${favs.map(r => `<li><span style="font-weight:600">${esc(r.titulo)}</span>${hasAccess(p) || r.acceso === 'gratis' ? `<button class="btn btn-o btn-sm" data-act="download" data-id="${r.id}">Descargar</button>` : ''}</li>`).join('')}</ul>` : '<p class="muted">Guarda recursos con el botón "Guardar" para tenerlos a la mano.</p>'}</section>
-<section class="card"><div class="row">${ico('down', '#1F4E79', 24)}<h3>Descargas recientes</h3></div>${dls.length ? `<ul class="list">${dls.map(d => { const r = byId(d.resource_id); return `<li><span style="font-weight:600">${esc(r ? r.titulo : 'Recurso no disponible')}</span><span class="muted">${fmtDate(d.created_at)}</span></li>`; }).join('')}</ul>` : '<p class="muted">Aquí verás lo último que descargaste.</p>'}</section>
+<section class="card"><div class="row">${ico('star', '#234386', 24)}<h3>Mis favoritos</h3></div>${favs.length ? `<ul class="list">${favs.map(r => `<li><span style="font-weight:600">${esc(r.titulo)}</span>${hasAccess(p) || r.acceso === 'gratis' ? `<button class="btn btn-o btn-sm" data-act="download" data-id="${r.id}">Descargar</button>` : ''}</li>`).join('')}</ul>` : '<p class="muted">Guarda recursos con el botón "Guardar" para tenerlos a la mano.</p>'}</section>
+<section class="card"><div class="row">${ico('down', '#234386', 24)}<h3>Descargas recientes</h3></div>${dls.length ? `<ul class="list">${dls.map(d => { const r = byId(d.resource_id); return `<li><span style="font-weight:600">${esc(r ? r.titulo : 'Recurso no disponible')}</span><span class="muted">${fmtDate(d.created_at)}</span></li>`; }).join('')}</ul>` : '<p class="muted">Aquí verás lo último que descargaste.</p>'}</section>
 </div>`);
 }
 async function waitForPayment() {
@@ -365,7 +395,7 @@ async function pgDescargas() {
 function pgHerramientas() {
   const p = needUser(); if (!p) return '';
   return shell('Herramientas', `${title('Herramientas en línea', 'Estamos terminando estas herramientas. Te avisaremos en tu panel cuando cada una esté lista.')}
-<div class="grid">${TOOLS.map(([i, t, d]) => `<article class="card"><div class="ic" style="background:#DCE7F2">${ico(i, '#1F4E79')}</div><h3>${t}</h3><p style="color:var(--tinta-suave)">${d}</p><span class="tag tag-a">Próximamente</span></article>`).join('')}</div>`);
+<div class="grid">${TOOLS.map(([i, t, d]) => `<article class="card"><div class="ic" style="background:#E4EAF5">${ico(i, '#234386')}</div><h3>${t}</h3><p style="color:var(--tinta-suave)">${d}</p><span class="tag tag-a">Próximamente</span></article>`).join('')}</div>`);
 }
 async function pgSuscripcion() {
   const p = needUser(); if (!p) return '';
@@ -411,8 +441,8 @@ async function pgAdmin() {
   return shell('Resumen', `${title('Resumen', 'Así va tu comunidad este mes.', '<a class="btn btn-o" href="#/admin/textos">Enviar aviso</a><a class="btn btn-y" href="#/admin/recurso/nuevo">Subir recurso</a>')}
 <section class="stack"><h2 style="font-size:24px">Suscriptoras</h2><div class="grid-s">${stat('Activas', cnt('activa') + cnt('cancelada') + cnt('pendiente'), 'Con plan pagado')}${stat('En prueba', cnt('prueba'), `${TRIAL_DAYS} días gratis`)}${stat('Plan mensual', ds.filter((u, i) => u.plan === 'mensual' && states[i].access).length)}${stat('Plan anual', ds.filter((u, i) => u.plan === 'anual' && states[i].access).length)}${stat('Sin plan o vencidas', cnt('sinplan') + cnt('vencida'))}${stat('Cancelaron la renovación', ds.filter(u => u.cancel_at_period_end).length)}</div></section>
 <section class="stack"><h2 style="font-size:24px">Ingresos</h2><div class="grid-s">${stat('Ingresos del mes', money(ingresos), 'Cobros con tarjeta')}${stat('Próximos cobros (7 días)', money(prox), 'Renovaciones y fin de pruebas')}${stat('Pruebas que terminan esta semana', pruebasFin)}</div></section>
-<div class="grid"><section class="card"><div class="row">${ico('down', '#1F4E79', 24)}<h3>Recursos más descargados</h3></div>${top.length ? `<ul class="list">${top.map(r => `<li><span style="font-weight:600">${esc(r.titulo)}</span><span class="muted">${r.descargas} ${r.descargas === 1 ? 'descarga' : 'descargas'}</span></li>`).join('')}</ul>` : '<p class="muted">Aún no subes recursos.</p>'}</section>
-<section class="card"><div class="row">${ico('star', '#1F4E79', 24)}<h3>Publicados este mes</h3></div>${pubMes.length ? `<ul class="list">${pubMes.map(r => `<li><span style="font-weight:600">${esc(r.titulo)}</span><span class="muted">${fmtDate(r.publicado_at)}</span></li>`).join('')}</ul>` : '<p class="muted">Aún no publicas recursos este mes.</p>'}</section></div>`, true);
+<div class="grid"><section class="card"><div class="row">${ico('down', '#234386', 24)}<h3>Recursos más descargados</h3></div>${top.length ? `<ul class="list">${top.map(r => `<li><span style="font-weight:600">${esc(r.titulo)}</span><span class="muted">${r.descargas} ${r.descargas === 1 ? 'descarga' : 'descargas'}</span></li>`).join('')}</ul>` : '<p class="muted">Aún no subes recursos.</p>'}</section>
+<section class="card"><div class="row">${ico('star', '#234386', 24)}<h3>Publicados este mes</h3></div>${pubMes.length ? `<ul class="list">${pubMes.map(r => `<li><span style="font-weight:600">${esc(r.titulo)}</span><span class="muted">${fmtDate(r.publicado_at)}</span></li>`).join('')}</ul>` : '<p class="muted">Aún no publicas recursos este mes.</p>'}</section></div>`, true);
 }
 const admF = { q: '', estado: 'Todos' };
 function estadoTag(r) { if (r.estado === 'programado') return visible(r) ? '<span class="tag tag-g">Publicado</span>' : `<span class="tag tag-b">Programado: ${esc(r.fecha_pub)}</span>`; return { publicado: '<span class="tag tag-g">Publicado</span>', borrador: '<span class="tag tag-a">Borrador</span>', oculto: '<span class="tag tag-r">Oculto</span>' }[r.estado]; }
@@ -498,7 +528,7 @@ async function pgAdminTextos() {
   const hist = avisos.map(v => `<li><span style="font-weight:600">${esc(v.titulo)}</span><span class="row"><span class="muted">${esc(v.destino)} · ${fmtDate(v.fecha)}</span><button type="button" class="btn btn-r btn-sm" data-act="delAviso" data-id="${v.id}">Quitar</button></span></li>`).join('');
   const faq = (s.faq || []).map(([q, a], i) => `<div class="card" style="background:var(--marfil);gap:12px"><div class="field"><label for="q${i}">Pregunta ${i + 1}</label><input id="q${i}" name="q${i}" class="inp" value="${esc(q)}"></div><div class="field"><label for="a${i}">Respuesta</label><textarea id="a${i}" name="a${i}" class="inp">${esc(a)}</textarea></div><div class="row"><button type="button" class="btn btn-o btn-sm" data-act="faqMove" data-i="${i}" data-d="-1"${i === 0 ? ' disabled' : ''}>Subir</button><button type="button" class="btn btn-o btn-sm" data-act="faqMove" data-i="${i}" data-d="1"${i === s.faq.length - 1 ? ' disabled' : ''}>Bajar</button><button type="button" class="btn btn-r btn-sm" data-act="faqDel" data-i="${i}">Quitar</button></div></div>`).join('');
   return shell('Textos y avisos', `${title('Textos y avisos', 'Cambia la información de la página y comunícate con tu comunidad.')}
-<form class="card" style="padding:28px;gap:18px" data-form="aviso" novalidate><div class="row">${ico('chat', '#1F4E79', 24)}<h2 style="font-size:26px">Enviar un aviso</h2></div>
+<form class="card" style="padding:28px;gap:18px" data-form="aviso" novalidate><div class="row">${ico('chat', '#234386', 24)}<h2 style="font-size:26px">Enviar un aviso</h2></div>
 <div class="field"><label for="at">Título del aviso</label><input id="at" name="titulo" class="inp" placeholder="Ej. Ya están los recursos de diciembre" required></div>
 <div class="field"><label for="am">Mensaje</label><textarea id="am" name="mensaje" class="inp" required></textarea></div>
 <div class="field"><label for="ad">Enviar a</label><select id="ad" name="destino" class="inp">${opt(['Todas las suscriptoras', 'Solo en prueba', 'Solo plan mensual', 'Solo plan anual'])}</select></div>
