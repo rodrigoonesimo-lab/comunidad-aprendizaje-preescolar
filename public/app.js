@@ -147,17 +147,24 @@ function footer() {
 <div class="row between" style="border-top:1px solid rgba(255,255,255,.3);padding-top:20px;font-size:14px"><p>© ${new Date().getFullYear()} Comunidad de Aprendizaje Preescolar</p><p>${AUTHOR}</p></div>
 </div></footer>${waBtn('Escríbenos por WhatsApp')}`;
 }
+function coverUrl(path) { return sb.storage.from('portadas').getPublicUrl(path).data.publicUrl; }
+function resAction(r) {
+  const p = S.profile, free = r.acceso === 'gratis', can = free || hasAccess(p);
+  if (r.formato === 'Herramienta en línea') return `<a class="btn btn-o" href="${p ? '#/panel/herramientas' : '#/registro'}">${ico('tools', '#234386', 20)}Abrir herramienta</a>`;
+  if (can) return `<button class="btn btn-y" data-act="download" data-id="${r.id}">${ico('down', '#FFFFFF', 20)}${free && !hasAccess(p) ? 'Descargar gratis' : 'Descargar'}</button>`;
+  return p ? `<a class="btn btn-o" href="#/panel/suscripcion">${ico('lock', '#B4510F', 20)}Elige un plan para descargar</a>` : `<a class="btn btn-o" href="#/registro">${ico('lock', '#B4510F', 20)}Ver con prueba gratis</a>`;
+}
 function resCard(r, ctx) {
   const p = S.profile; const [icn, bg] = CAT_STYLE[r.categoria] || ['plan', '#E4EAF5'];
   const free = r.acceso === 'gratis', can = free || hasAccess(p);
   const isFav = p && (p.favoritos || []).includes(r.id);
   const fav = p && !isAdmin(p) ? `<button class="btn btn-o btn-sm" data-act="fav" data-id="${r.id}" aria-pressed="${!!isFav}">${ico('star', '#234386', 18)}${isFav ? 'Quitar de favoritos' : 'Guardar'}</button>` : '';
   const badge = ctx === 'nuevo' ? '<span class="tag tag-b">Nuevo</span>' : (free ? '<span class="tag tag-y">Gratis</span>' : '<span class="tag tag-b">Con suscripción</span>');
-  let act;
-  if (r.formato === 'Herramienta en línea') act = `<a class="btn btn-o" href="${p ? '#/panel/herramientas' : '#/registro'}">${ico('tools', '#234386', 20)}Abrir herramienta</a>`;
-  else if (can) act = `<button class="btn btn-y" data-act="download" data-id="${r.id}">${ico('down', '#1E2530', 20)}${free && !hasAccess(p) ? 'Descargar gratis' : 'Descargar'}</button>`;
-  else act = p ? `<a class="btn btn-o" href="#/panel/suscripcion">${ico('lock', '#234386', 20)}Elige un plan para descargar</a>` : `<a class="btn btn-o" href="#/registro">${ico('lock', '#234386', 20)}Ver con prueba gratis</a>`;
-  return `<article class="card"><div class="thumb" style="background:${bg}">${ico(icn, '#234386', 44)}</div>
+  const act = resAction(r);
+  const thumb = r.cover_path
+    ? `<button type="button" class="cover" data-act="verPortada" data-id="${r.id}" aria-label="Ver la portada de ${esc(r.titulo)} en grande"><img src="${esc(coverUrl(r.cover_path))}" alt="Portada de ${esc(r.titulo)}" loading="lazy" decoding="async"></button>`
+    : `<div class="cover cover-ico" style="background:${bg}">${ico(icn, '#234386', 52)}</div>`;
+  return `<article class="card">${thumb}
 <div class="row" style="gap:8px">${badge}<span class="tag tag-g">${esc(r.categoria)}</span></div>
 <h3>${esc(r.titulo)}</h3>${r.descripcion ? `<p style="color:var(--tinta-suave)">${esc(r.descripcion)}</p>` : ''}
 <div class="meta"><span>Grado: ${esc((r.grados || []).join(', '))}</span>${r.campo ? `<span>Campo: ${esc(r.campo)}</span>` : ''}<span>Formato: ${esc(r.formato)}</span></div>
@@ -460,11 +467,15 @@ async function pgAdminRecursos() {
 }
 async function pgAdminRecurso(id) {
   if (!needAdmin()) return ''; await loadResources();
-  const r = id === 'nuevo' ? { id: '', titulo: '', descripcion: '', categoria: CATS[0], campo: CAMPOS[0], grados: [], formato: 'PDF', acceso: 'suscripcion', nuevo_mes: true, estado: 'borrador', fecha_pub: '', file_name: '' } : S.resources.find(x => x.id === id);
+  const r = id === 'nuevo' ? { id: '', cover_path: '', titulo: '', descripcion: '', categoria: CATS[0], campo: CAMPOS[0], grados: [], formato: 'PDF', acceso: 'suscripcion', nuevo_mes: true, estado: 'borrador', fecha_pub: '', file_name: '' } : S.resources.find(x => x.id === id);
   if (!r) return shell('Recursos', '<p class="empty">Ese recurso no existe.</p>', true);
   return shell('Recursos', `${title(id === 'nuevo' ? 'Subir un recurso nuevo' : 'Editar recurso', '', '<a class="btn btn-o" href="#/admin/recursos">Volver a la lista</a>')}
 <form class="card stack" style="padding:28px;gap:20px" data-form="recurso" data-id="${esc(r.id)}" novalidate>
 <div class="field"><label for="arch">Archivo (PDF o Word)</label><input id="arch" name="file" class="inp" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style="padding:10px"><span class="muted">${r.file_name ? 'Archivo actual: ' + esc(r.file_name) + '. Sube otro solo si quieres reemplazarlo.' : 'Para herramientas en línea no se sube archivo. Máximo 50 MB.'}</span></div>
+<div class="field"><label for="portada">Imagen de portada (opcional)</label>
+<div class="row" style="align-items:flex-start;gap:16px">${r.cover_path ? `<img src="${esc(coverUrl(r.cover_path))}" alt="Portada actual" style="width:96px;aspect-ratio:3/4;object-fit:contain;background:#F3EBDD;border-radius:6px">` : ''}
+<div class="stack" style="gap:8px;flex:1;min-width:220px"><input id="portada" name="cover" class="inp" type="file" accept="image/jpeg,image/png,image/webp" style="padding:10px"><span class="muted">JPG, PNG o WebP. Se ajusta sola a formato vertical tipo libro. Si no subes imagen, se muestra el ícono de la categoría.</span>
+${r.cover_path ? '<label class="chk"><input type="checkbox" name="quitar_portada"><span>Quitar la portada actual</span></label>' : ''}</div></div></div>
 <div class="field"><label for="rn">Nombre del recurso</label><input id="rn" name="titulo" class="inp" value="${esc(r.titulo)}" placeholder="Ej. Proyecto de aula: Las plantas de mi jardín" required></div>
 <div class="field"><label for="rd">Descripción breve</label><textarea id="rd" name="descripcion" class="inp" placeholder="Qué es y cómo se usa en el aula">${esc(r.descripcion)}</textarea></div>
 <div class="grid-s" style="align-items:start">
@@ -654,7 +665,10 @@ async function onSubmit(ev) {
       if (!grados.length) return showErr(f, 'Elige al menos un grado.');
       if (estado === 'programado' && !d.fecha_pub) return showErr(f, 'Elige la fecha de publicación para programarlo.');
       const id = f.dataset.id, old = id ? S.resources.find(x => x.id === id) : null;
-      const file = f.querySelector('input[type=file]').files[0];
+      const file = f.querySelector('input[name=file]').files[0];
+      const cover = f.querySelector('input[name=cover]').files[0];
+      if (cover && !/^image\/(jpeg|png|webp)$/.test(cover.type)) return showErr(f, 'La portada debe ser JPG, PNG o WebP.');
+      if (cover && cover.size > 15 * 1024 * 1024) return showErr(f, 'La imagen de portada pesa más de 15 MB.');
       if (file && file.size > 50 * 1024 * 1024) return showErr(f, 'El archivo pesa más de 50 MB.');
       if (estado !== 'borrador' && d.formato !== 'Herramienta en línea' && !file && !(old && old.file_path)) return showErr(f, 'Sube el archivo del recurso antes de publicarlo.');
       const row = { titulo: d.titulo.trim(), descripcion: (d.descripcion || '').trim(), categoria: d.categoria, campo: d.campo === 'No aplica' ? '' : d.campo, formato: d.formato, grados, acceso: d.acceso || 'suscripcion', nuevo_mes: !!d.nuevo_mes, estado, fecha_pub: d.fecha_pub || null };
@@ -667,6 +681,17 @@ async function onSubmit(ev) {
         must(await sb.storage.from('recursos').upload(path, file, { contentType: file.type || undefined }), 'No se pudo subir el archivo.');
         if (old && old.file_path) await sb.storage.from('recursos').remove([old.file_path]);
         row.file_path = path; row.file_name = file.name;
+      }
+      if (cover) {
+        toast('Subiendo portada…');
+        const blob = await prepararPortada(cover);
+        const cpath = crypto.randomUUID() + '.' + (blob.type === 'image/webp' ? 'webp' : 'jpg');
+        must(await sb.storage.from('portadas').upload(cpath, blob, { contentType: blob.type, cacheControl: '31536000' }), 'No se pudo subir la portada.');
+        if (old && old.cover_path) await sb.storage.from('portadas').remove([old.cover_path]);
+        row.cover_path = cpath;
+      } else if (d.quitar_portada && old && old.cover_path) {
+        await sb.storage.from('portadas').remove([old.cover_path]);
+        row.cover_path = null;
       }
       if (old) must(await sb.from('resources').update(row).eq('id', old.id), 'No se pudo guardar el recurso.');
       else must(await sb.from('resources').insert(row), 'No se pudo guardar el recurso.');
@@ -705,6 +730,18 @@ async function onSubmit(ev) {
   } catch (e) { showErr(f, e.message || 'Ocurrió un error.'); }
   finally { if (document.body.contains(f)) busy(f, false); }
 }
+// Reduce la portada (máx. 900×1200) y la convierte a WebP para que cargue rápido.
+async function prepararPortada(file) {
+  try {
+    const bmp = await createImageBitmap(file);
+    const k = Math.min(1, 900 / bmp.width, 1200 / bmp.height);
+    const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    const webp = await new Promise(res => c.toBlob(res, 'image/webp', 0.85));
+    if (webp && webp.type === 'image/webp') return webp;
+    return await new Promise(res => c.toBlob(res, 'image/jpeg', 0.85));
+  } catch (e) { return file; }
+}
 async function saveSettings(s) { must(await sb.from('settings').update({ data: s }).eq('id', 1), 'No se pudieron guardar los cambios.'); S.settings = s; }
 async function onClick(ev) {
   const el = ev.target.closest('[data-act]'); if (!el) return;
@@ -713,7 +750,8 @@ async function onClick(ev) {
     if (act === 'closeModalBg') { if (ev.target === el) closeModal(); return; }
     if (act === 'closeModal') return closeModal();
     if (act === 'reload') return location.reload();
-    if (act === 'download') return await doDownload(id);
+    if (act === 'download') { closeModal(); return await doDownload(id); }
+    if (act === 'verPortada') { const r = S.resources.find(x => x.id === id); if (!r) return; return modal(`<button type="button" class="btn btn-o btn-sm" data-act="closeModal" style="align-self:flex-end">Cerrar ✕</button><img src="${esc(coverUrl(r.cover_path))}" alt="Portada de ${esc(r.titulo)}" style="width:100%;max-height:70vh;object-fit:contain;background:#F3EBDD;border-radius:8px"><h2 style="font-size:32px">${esc(r.titulo)}</h2>${r.descripcion ? `<p style="color:var(--tinta-suave)">${esc(r.descripcion)}</p>` : ''}<div class="meta"><span>Grado: ${esc((r.grados || []).join(', '))}</span>${r.campo ? `<span>Campo: ${esc(r.campo)}</span>` : ''}<span>Formato: ${esc(r.formato)}</span></div><div class="row">${resAction(r)}</div>`); }
     if (act === 'logout') { await doSignOut('Sesión cerrada.'); return go('#/'); }
     if (act === 'forgot') return forgotModal();
     if (act === 'filter') { catF[el.dataset.k] = el.dataset.v; return render(); }
@@ -721,7 +759,7 @@ async function onClick(ev) {
     if (act === 'closeAviso') { const p = S.profile; const c = (p.avisos_cerrados || []).concat(id); must(await sb.from('profiles').update({ avisos_cerrados: c }).eq('id', p.id)); p.avisos_cerrados = c; return render(); }
     if (act === 'checkout' || act === 'portal') { el.disabled = true; toast('Abriendo la página segura de Stripe…'); const r = await api(act === 'checkout' ? '/api/checkout' : '/api/portal', { plan: el.dataset.plan }); location.href = r.url; return; }
     if (act === 'toggleHide') { const r = S.resources.find(x => x.id === id); const estado = r.estado === 'oculto' ? 'publicado' : 'oculto'; must(await sb.from('resources').update({ estado, ...(estado === 'publicado' && !r.publicado_at ? { publicado_at: new Date().toISOString() } : {}) }).eq('id', id)); return render(); }
-    if (act === 'delRes') { const r = S.resources.find(x => x.id === id); if (!window.confirm('¿Eliminar "' + r.titulo + '"? No se puede deshacer.')) return; if (r.file_path) await sb.storage.from('recursos').remove([r.file_path]); must(await sb.from('resources').delete().eq('id', id)); toast('Recurso eliminado.'); return go('#/admin/recursos'); }
+    if (act === 'delRes') { const r = S.resources.find(x => x.id === id); if (!window.confirm('¿Eliminar "' + r.titulo + '"? No se puede deshacer.')) return; if (r.file_path) await sb.storage.from('recursos').remove([r.file_path]); if (r.cover_path) await sb.storage.from('portadas').remove([r.cover_path]); must(await sb.from('resources').delete().eq('id', id)); toast('Recurso eliminado.'); return go('#/admin/recursos'); }
     if (act === 'admEstado') { admF.estado = el.dataset.v; return render(); }
     if (act === 'subFil') { subF.f = el.dataset.v; return render(); }
     if (act === 'delAviso') { if (!window.confirm('¿Quitar este aviso?')) return; must(await sb.from('avisos').delete().eq('id', id)); return render(); }
@@ -809,7 +847,7 @@ async function start() {
   document.addEventListener('input', onInput);
   document.addEventListener('change', e => { if (e.target.matches('select[data-filter],[data-herrcampo]')) onInput(e); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.querySelector('#modal-root .back')) closeModal(); });
-  window.addEventListener('hashchange', render);
+  window.addEventListener('hashchange', () => { closeModal(); render(); });
   render();
 }
 start();
