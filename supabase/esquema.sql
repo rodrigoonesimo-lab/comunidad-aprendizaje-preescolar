@@ -274,3 +274,9 @@ drop policy if exists recursos_cambiar on storage.objects;
 create policy recursos_cambiar on storage.objects for update to authenticated using (bucket_id = 'recursos' and public.is_admin());
 drop policy if exists recursos_borrar on storage.objects;
 create policy recursos_borrar on storage.objects for delete to authenticated using (bucket_id = 'recursos' and public.is_admin());
+
+-- ---------- Ajustes de seguridad ----------
+alter function public.resource_visible(public.resources) set search_path = public;
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
+revoke execute on function public.admin_set_block(uuid, boolean, text) from public, anon;
+grant execute on function public.admin_set_block(uuid, boolean, text) to authenticated;
