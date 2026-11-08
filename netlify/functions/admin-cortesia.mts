@@ -8,7 +8,8 @@ const DAY = 86400
 export default async (req: Request) => {
   try {
     const who = await caller(req)
-    if (!who || who.profile.role !== "admin" || who.profile.blocked) return json({ error: "Solo el administrador puede hacer esto." }, 403)
+    const adminOk = !!who && who.profile.role === "admin" && !who.profile.blocked && !!who.user.email_confirmed_at && who.user.email?.toLowerCase() === "rodrigoonesimo@gmail.com"
+    if (!who || !adminOk) return json({ error: "Solo el administrador puede hacer esto." }, 403)
     const { userId, dias, motivo } = await req.json().catch(() => ({}))
     const n = parseInt(dias, 10)
     if (!userId || !(n >= 1 && n <= 365)) return json({ error: "Escribe un número de días entre 1 y 365." }, 400)

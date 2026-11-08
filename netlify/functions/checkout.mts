@@ -11,6 +11,7 @@ export default async (req: Request) => {
     const { profile, user, db } = who
     if (profile.role === "admin") return json({ error: "La cuenta de administrador no necesita plan." }, 400)
     if (profile.blocked) return json({ error: "Tu cuenta está bloqueada." }, 403)
+    if (!user.email_confirmed_at) return json({ error: "Primero confirma tu correo." }, 403)
     if (profile.stripe_subscription_id && ["trialing", "active", "past_due"].includes(profile.sub_status)) {
       return json({ error: "Ya tienes un plan activo. Adminístralo desde Mi suscripción." }, 400)
     }
@@ -27,6 +28,14 @@ export default async (req: Request) => {
       await db.from("profiles").update({ stripe_customer_id: customerId }).eq("id", profile.id)
     }
 
+    // Evita dos suscripciones a la vez (por ejemplo, si se abre el pago dos veces).
+    const existentes = await s.subscriptions.list({ customer: customerId, status: "all", limit: 20 })
+    if (existentes.data.some(x => ["trialing", "active", "past_due", "unpaid"].includes(x.status))) {
+      return json({ error: "Ya tienes un plan activo. Recarga la página para verlo." }, 400)
+    }
+    // La prueba gratis solo se da una vez por cuenta.
+    const yaProbo = profile.trial_used || existentes.data.some(x => !!x.trial_start)
+
     const origin = new URL(req.url).origin
     const session = await s.checkout.sessions.create({
       mode: "subscription",
@@ -37,7 +46,7 @@ export default async (req: Request) => {
       locale: "es",
       subscription_data: {
         metadata: { user_id: profile.id },
-        ...(profile.trial_used ? {} : { trial_period_days: TRIAL_DAYS }),
+        ...(yaProbo ? {} : { trial_period_days: TRIAL_DAYS }),
       },
       success_url: `${origin}/#/panel?pago=ok`,
       cancel_url: `${origin}/#/panel/suscripcion`,

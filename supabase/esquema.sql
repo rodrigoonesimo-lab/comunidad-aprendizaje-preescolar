@@ -280,3 +280,38 @@ alter function public.resource_visible(public.resources) set search_path = publi
 revoke execute on function public.handle_new_user() from public, anon, authenticated;
 revoke execute on function public.admin_set_block(uuid, boolean, text) from public, anon;
 grant execute on function public.admin_set_block(uuid, boolean, text) to authenticated;
+
+-- ---------- Seguridad reforzada ----------
+create or replace function public.is_admin()
+returns boolean language sql stable security definer set search_path = public, auth as $$
+  select exists (
+    select 1 from public.profiles p join auth.users u on u.id = p.id
+    where p.id = auth.uid() and p.role = 'admin' and not p.blocked
+      and u.email_confirmed_at is not null
+      and lower(u.email) = 'rodrigoonesimo@gmail.com'
+  );
+$$;
+alter table public.profiles add constraint profiles_nombre_len check (char_length(nombre) <= 120) not valid;
+alter table public.profiles add constraint profiles_grado_len check (char_length(grado) <= 60) not valid;
+alter table public.profiles add constraint profiles_favs_len check (cardinality(favoritos) <= 500) not valid;
+alter table public.profiles add constraint profiles_avisos_len check (cardinality(avisos_cerrados) <= 1000) not valid;
+revoke insert, update, delete, truncate on all tables in schema public from anon;
+revoke insert, delete, truncate on public.profiles from authenticated;
+revoke insert, update, delete, truncate on public.payments, public.cortesias, public.descargas from authenticated;
+revoke insert, delete, truncate on public.settings from authenticated;
+revoke truncate on public.resources, public.avisos, public.contenidos, public.plantillas from authenticated;
+update storage.buckets set file_size_limit = 52428800,
+  allowed_mime_types = array['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+  where id = 'recursos';
+-- (handle_new_user limita nombre a 120 y grado a 60 caracteres; registrar_descarga ignora repeticiones en menos de 1 minuto)
+create or replace function public.has_access(uid uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select uid is not null and uid = auth.uid() and exists (
+    select 1 from public.profiles p
+    where p.id = uid and not p.blocked and (
+      p.role = 'admin'
+      or (p.sub_status in ('trialing','active','past_due') and coalesce(greatest(p.current_period_end, p.trial_end), now()) > now())
+      or (p.courtesy_until is not null and p.courtesy_until > now())
+    )
+  );
+$$;

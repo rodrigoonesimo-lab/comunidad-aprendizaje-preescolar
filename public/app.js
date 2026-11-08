@@ -712,6 +712,7 @@ async function onClick(ev) {
   try {
     if (act === 'closeModalBg') { if (ev.target === el) closeModal(); return; }
     if (act === 'closeModal') return closeModal();
+    if (act === 'reload') return location.reload();
     if (act === 'download') return await doDownload(id);
     if (act === 'logout') { await doSignOut('Sesión cerrada.'); return go('#/'); }
     if (act === 'forgot') return forgotModal();
@@ -772,7 +773,7 @@ async function render() {
     else html = await pgInicio();
   } catch (e) {
     console.error(e);
-    html = `<main class="wrap" style="padding:64px 24px"><div class="card stack"><h1 style="font-size:28px">Algo salió mal</h1><p>${esc(e.message || 'No se pudo cargar la página.')}</p><button class="btn btn-b" onclick="location.reload()" style="align-self:flex-start">Intentar de nuevo</button></div></main>`;
+    html = `<main class="wrap" style="padding:64px 24px"><div class="card stack"><h1 style="font-size:28px">Algo salió mal</h1><p>${esc(e.message || 'No se pudo cargar la página.')}</p><button class="btn btn-b" data-act="reload" style="align-self:flex-start">Intentar de nuevo</button></div></main>`;
   }
   if (seq !== renderSeq || html === '') return;
   document.getElementById('app').innerHTML = html;
