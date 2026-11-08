@@ -1,10 +1,12 @@
 // Crea la página de pago de Stripe para el plan elegido (con 7 días de prueba la primera vez).
 import type { Config } from "@netlify/functions"
-import { caller, env, json, stripe } from "../lib/lib.mts"
+import { caller, env, json, stripe, soloMismoSitio } from "../lib/lib.mts"
 
 const TRIAL_DAYS = 7
 
 export default async (req: Request) => {
+  const bloqueo = soloMismoSitio(req)
+  if (bloqueo) return bloqueo
   try {
     const who = await caller(req)
     if (!who) return json({ error: "Inicia sesión para continuar." }, 401)
@@ -58,4 +60,4 @@ export default async (req: Request) => {
   }
 }
 
-export const config: Config = { path: "/api/checkout", method: "POST" }
+export const config: Config = { path: "/api/checkout", method: ["POST", "OPTIONS"] }

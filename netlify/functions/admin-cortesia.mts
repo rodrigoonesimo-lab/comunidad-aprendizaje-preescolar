@@ -1,11 +1,13 @@
 // Da días de cortesía a una docente (solo administrador).
 // Si tiene un plan en Stripe, su siguiente cobro se recorre esos días.
 import type { Config } from "@netlify/functions"
-import { caller, json, stripe, syncSubscription } from "../lib/lib.mts"
+import { caller, json, stripe, syncSubscription, soloMismoSitio } from "../lib/lib.mts"
 
 const DAY = 86400
 
 export default async (req: Request) => {
+  const bloqueo = soloMismoSitio(req)
+  if (bloqueo) return bloqueo
   try {
     const who = await caller(req)
     const adminOk = !!who && who.profile.role === "admin" && !who.profile.blocked && !!who.user.email_confirmed_at && who.user.email?.toLowerCase() === "rodrigoonesimo@gmail.com"
@@ -41,4 +43,4 @@ export default async (req: Request) => {
   }
 }
 
-export const config: Config = { path: "/api/admin/cortesia", method: "POST" }
+export const config: Config = { path: "/api/admin/cortesia", method: ["POST", "OPTIONS"] }

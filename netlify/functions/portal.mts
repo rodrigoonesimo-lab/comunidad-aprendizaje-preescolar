@@ -1,8 +1,10 @@
 // Abre el portal de Stripe donde la docente cancela, cambia de plan o actualiza su tarjeta.
 import type { Config } from "@netlify/functions"
-import { caller, json, stripe } from "../lib/lib.mts"
+import { caller, json, stripe, soloMismoSitio } from "../lib/lib.mts"
 
 export default async (req: Request) => {
+  const bloqueo = soloMismoSitio(req)
+  if (bloqueo) return bloqueo
   try {
     const who = await caller(req)
     if (!who) return json({ error: "Inicia sesión para continuar." }, 401)
@@ -20,4 +22,4 @@ export default async (req: Request) => {
   }
 }
 
-export const config: Config = { path: "/api/portal", method: "POST" }
+export const config: Config = { path: "/api/portal", method: ["POST", "OPTIONS"] }

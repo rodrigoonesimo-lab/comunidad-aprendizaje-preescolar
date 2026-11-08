@@ -66,3 +66,26 @@ export async function syncSubscription(sub: Stripe.Subscription) {
   if (sub.trial_end) update.trial_used = true
   await db.from("profiles").update(update).eq("id", userId)
 }
+
+// ---------- CORS: solo se aceptan llamadas desde la propia página ----------
+const SITIO = "https://comunidad-aprendizaje-preescolar.netlify.app"
+const VISTAS_PREVIAS = /^https:\/\/[a-z0-9-]+--comunidad-aprendizaje-preescolar\.netlify\.app$/
+
+export function origenPermitido(origin: string | null): boolean {
+  if (!origin) return false
+  if (origin === SITIO) return true
+  const extra = (Netlify.env.get("ALLOWED_ORIGINS") || "").split(",").map(s => s.trim()).filter(Boolean)
+  return extra.includes(origin) || VISTAS_PREVIAS.test(origin)
+}
+
+// Rechaza solicitudes de otros sitios y las verificaciones previas (OPTIONS).
+// No se envían encabezados Access-Control-Allow-*: el navegador bloquea cualquier otro origen.
+export function soloMismoSitio(req: Request, { requiereOrigen = true } = {}): Response | null {
+  if (req.method === "OPTIONS") return new Response(null, { status: 403, headers: { Vary: "Origin" } })
+  const origin = req.headers.get("origin")
+  if (origin === null && !requiereOrigen) return null
+  if (!origenPermitido(origin)) return Response.json({ error: "Origen no permitido." }, { status: 403, headers: { Vary: "Origin" } })
+  const site = req.headers.get("sec-fetch-site")
+  if (site && site !== "same-origin") return Response.json({ error: "Origen no permitido." }, { status: 403, headers: { Vary: "Origin" } })
+  return null
+}
