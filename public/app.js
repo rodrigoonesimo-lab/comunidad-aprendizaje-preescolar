@@ -366,7 +366,7 @@ async function pgPanel(params) {
     .filter(a => a.destino === 'Todas las suscriptoras' || (a.destino === 'Solo en prueba' && st.key === 'prueba') || (a.destino === 'Solo plan mensual' && p.plan === 'mensual') || (a.destino === 'Solo plan anual' && p.plan === 'anual')).slice(0, 3);
   const dls = await myDescargas(5);
   const byId = id => S.resources.find(r => r.id === id);
-  const tools = TOOLS.map(([i, t]) => `<a class="card" href="#/panel/herramientas" style="text-decoration:none;padding:18px;gap:10px"><div class="ic" style="background:#E4EAF5;width:44px;height:44px">${ico(i, '#234386', 22)}</div><span style="font-weight:700;color:var(--tinta)">${t}</span></a>`).join('');
+  const tools = TOOLS.map(([i, t], n) => `<a class="card" href="${n === 0 ? '#/panel/planeaciones' : '#/panel/herramientas'}" style="text-decoration:none;padding:18px;gap:10px"><div class="ic" style="background:#E4EAF5;width:44px;height:44px">${ico(i, '#234386', 22)}</div><span style="font-weight:700;color:var(--tinta)">${t}</span></a>`).join('');
   const nuevos = publicRes().filter(r => r.nuevo_mes).slice(0, 4).map(r => resCard(r, 'nuevo')).join('') || '<p class="empty">Este mes aún no hay recursos nuevos.</p>';
   const favs = (p.favoritos || []).map(byId).filter(Boolean).slice(0, 5);
   const av = avisos.map(a => `<section class="notice b"><div class="stack" style="gap:4px"><p style="font-weight:800">${esc(a.titulo)}</p><p>${esc(a.mensaje)}</p></div><button class="btn btn-o btn-sm" data-act="closeAviso" data-id="${a.id}">Cerrar aviso</button></section>`).join('');
@@ -401,8 +401,8 @@ async function pgDescargas() {
 }
 function pgHerramientas() {
   const p = needUser(); if (!p) return '';
-  return shell('Herramientas', `${title('Herramientas en línea', 'Estamos terminando estas herramientas. Te avisaremos en tu panel cuando cada una esté lista.')}
-<div class="grid">${TOOLS.map(([i, t, d]) => `<article class="card"><div class="ic" style="background:#E4EAF5">${ico(i, '#234386')}</div><h3>${t}</h3><p style="color:var(--tinta-suave)">${d}</p><span class="tag tag-a">Próximamente</span></article>`).join('')}</div>`);
+  return shell('Herramientas', `${title('Herramientas en línea', 'El generador de planeaciones ya está listo. Te avisaremos en tu panel cuando las demás herramientas estén disponibles.')}
+<div class="grid">${TOOLS.map(([i, t, d], n) => `<article class="card"><div class="ic" style="background:#E4EAF5">${ico(i, '#234386')}</div><h3>${t}</h3><p style="color:var(--tinta-suave)">${d}</p>${n === 0 ? '<a class="btn btn-y" href="#/panel/planeaciones" style="align-self:flex-start;margin-top:auto">Abrir</a>' : '<span class="tag tag-a" style="margin-top:auto">Próximamente</span>'}</article>`).join('')}</div>`);
 }
 async function pgSuscripcion() {
   const p = needUser(); if (!p) return '';
@@ -559,7 +559,7 @@ ${Object.keys(s.redes || {}).map(k => `<div class="field"><label for="r${k}">${k
 const herrF = { campo: 'Todos', edit: null };
 async function pgAdminHerr() {
   if (!needAdmin()) return '';
-  const contenidos = must(await sb.from('contenidos').select('*').order('created_at')) || [];
+  const contenidos = must(await sb.from('contenidos').select('*').order('orden').order('created_at')) || [];
   const plantillas = must(await sb.from('plantillas').select('*').order('created_at')) || [];
   S.plantillas = plantillas;
   const list = herrF.campo === 'Todos' ? contenidos : contenidos.filter(c => c.campo === herrF.campo);
@@ -567,7 +567,7 @@ async function pgAdminHerr() {
   const rows = list.map(c => `<tr><td>${esc(c.campo)}</td><td>${esc(c.contenido)}</td><td>${[c.pda1, c.pda2, c.pda3].filter(Boolean).length} de 3 grados</td><td><div class="row" style="gap:8px;flex-wrap:nowrap"><button class="btn btn-o btn-sm" data-act="editCont" data-id="${c.id}">Editar</button><button class="btn btn-r btn-sm" data-act="delCont" data-id="${c.id}">Quitar</button></div></td></tr>`).join('');
   const pl = plantillas.map(p => `<li><span><b>${esc(p.nombre)}</b> <span class="muted">· ${esc(p.tipo)} · ${p.criterios.split('\n').filter(Boolean).length} criterios</span></span><div class="row" style="gap:8px"><button class="btn btn-o btn-sm" data-act="editPlant" data-id="${p.id}">Editar</button><button class="btn btn-o btn-sm" data-act="dupPlant" data-id="${p.id}">Duplicar</button><button class="btn btn-r btn-sm" data-act="delPlant" data-id="${p.id}">Quitar</button></div></li>`).join('');
   return shell('Herramientas', `${title('Herramientas en línea', 'Edita las listas y plantillas que usarán las herramientas.')}
-<section class="card" style="padding:28px;gap:18px"><div class="row between"><h2 style="font-size:26px">Contenidos y PDA del generador</h2><button class="btn btn-y" data-act="editCont" data-id="nuevo">Agregar contenido</button></div>
+<section class="card" style="padding:28px;gap:18px"><div class="row between"><h2 style="font-size:26px">Contenidos y PDA del generador</h2><div class="row">${contenidos.length ? '' : '<button class="btn btn-b" data-act="importFase2">Cargar programa oficial Fase 2</button>'}<button class="btn btn-y" data-act="editCont" data-id="nuevo">Agregar contenido</button></div></div>${contenidos.length ? `<p class="muted">${contenidos.length} contenidos cargados.</p>` : '<p class="notice b" style="padding:12px 16px">Puedes cargar de una vez los 34 contenidos y sus PDA de 1°, 2° y 3° del Programa Sintético de la Fase 2.</p>'}
 <div class="field" style="max-width:420px"><label for="hc">Campo formativo</label><select id="hc" class="inp" data-herrcampo>${opt(['Todos', ...CAMPOS], herrF.campo)}</select></div>
 <div class="tbox"><table class="tbl"><thead><tr><th>Campo formativo</th><th>Contenido</th><th>PDA</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="4">Aún no cargas contenidos. Agrega los del programa sintético de la Fase 2.</td></tr>'}</tbody></table></div></section>
 ${e ? `<form class="card" style="padding:28px;gap:18px" data-form="contenido" data-id="${e.id}" novalidate><h2 style="font-size:24px">${e.id === 'nuevo' ? 'Agregar contenido' : 'Editar contenido'}</h2>
@@ -720,7 +720,7 @@ async function onSubmit(ev) {
       if (!d.contenido || !d.contenido.trim()) return showErr(f, 'Escribe el contenido.');
       const row = { campo: d.campo, contenido: d.contenido.trim(), pda1: (d.pda1 || '').trim(), pda2: (d.pda2 || '').trim(), pda3: (d.pda3 || '').trim() };
       if (f.dataset.id === 'nuevo') must(await sb.from('contenidos').insert(row)); else must(await sb.from('contenidos').update(row).eq('id', f.dataset.id));
-      herrF.edit = null; toast('Contenido guardado.'); render();
+      herrF.edit = null; P.contenidos = null; toast('Contenido guardado.'); render();
     } else if (kind === 'plantilla') {
       if (!d.nombre || !d.nombre.trim()) return showErr(f, 'Escribe el nombre de la plantilla.');
       const row = { nombre: d.nombre.trim(), tipo: d.tipo, criterios: (d.criterios || '').trim() };
@@ -749,6 +749,7 @@ async function onClick(ev) {
   try {
     if (act === 'closeModalBg') { if (ev.target === el) closeModal(); return; }
     if (act === 'closeModal') return closeModal();
+    if (act.startsWith('pl')) return await planClick(el, act, id);
     if (act === 'reload') return location.reload();
     if (act === 'download') { closeModal(); return await doDownload(id); }
     if (act === 'verPortada') { const r = S.resources.find(x => x.id === id); if (!r) return; return modal(`<button type="button" class="btn btn-o btn-sm" data-act="closeModal" style="align-self:flex-end">Cerrar ✕</button><img src="${esc(coverUrl(r.cover_path))}" alt="Portada de ${esc(r.titulo)}" style="width:100%;max-height:70vh;object-fit:contain;background:#F3EBDD;border-radius:8px"><h2 style="font-size:32px">${esc(r.titulo)}</h2>${r.descripcion ? `<p style="color:var(--tinta-suave)">${esc(r.descripcion)}</p>` : ''}<div class="meta"><span>Grado: ${esc((r.grados || []).join(', '))}</span>${r.campo ? `<span>Campo: ${esc(r.campo)}</span>` : ''}<span>Formato: ${esc(r.formato)}</span></div><div class="row">${resAction(r)}</div>`); }
@@ -767,6 +768,7 @@ async function onClick(ev) {
     if (act === 'faqDel') { const s = JSON.parse(JSON.stringify(S.settings)); s.faq.splice(+el.dataset.i, 1); await saveSettings(s); return render(); }
     if (act === 'faqMove') { const s = JSON.parse(JSON.stringify(S.settings)); const i = +el.dataset.i, j = i + +el.dataset.d; [s.faq[i], s.faq[j]] = [s.faq[j], s.faq[i]]; await saveSettings(s); return render(); }
     if (act === 'editCont') { herrF.edit = id; await render(); const f = document.querySelector('form[data-form=contenido]'); if (f) f.scrollIntoView({ behavior: 'smooth' }); return; }
+    if (act === 'importFase2') { if (!window.confirm('¿Cargar los 34 contenidos y PDA del programa oficial de la Fase 2?')) return; el.disabled = true; const r = await fetch('/datos/fase2-contenidos.json'); const data = await r.json(); must(await sb.from('contenidos').insert(data.map((c, i) => ({ ...c, orden: i + 1 }))), 'No se pudieron cargar los contenidos.'); P.contenidos = null; toast('Contenidos cargados.'); return render(); }
     if (act === 'cancelCont') { herrF.edit = null; return render(); }
     if (act === 'delCont') { if (!window.confirm('¿Quitar este contenido?')) return; must(await sb.from('contenidos').delete().eq('id', id)); return render(); }
     if (act === 'editPlant') return plantModal(id);
@@ -777,11 +779,184 @@ async function onClick(ev) {
 let inputT;
 function onInput(ev) {
   const t = ev.target;
+  if (t.dataset.pf !== undefined || t.dataset.ps !== undefined) return planInput(t);
   if (t.dataset.filter) { catF[t.dataset.filter] = t.value; const box = document.getElementById('cat-res'); if (box) box.innerHTML = catResults(); return; }
   const refocus = idSel => { clearTimeout(inputT); inputT = setTimeout(async () => { await render(); const i = document.getElementById(idSel); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 350); };
   if (t.hasAttribute('data-admq')) { admF.q = t.value; return refocus('br'); }
   if (t.hasAttribute('data-subq')) { subF.q = t.value; return refocus('bs'); }
   if (t.hasAttribute('data-herrcampo')) { herrF.campo = t.value; return render(); }
+}
+
+/* ================= GENERADOR DE PLANEACIONES ================= */
+const EJES = ['Inclusión', 'Pensamiento crítico', 'Interculturalidad crítica', 'Igualdad de género', 'Vida saludable', 'Apropiación de las culturas a través de la lectura y la escritura', 'Artes y experiencias estéticas'];
+const METODOS = ['Aprendizaje basado en proyectos comunitarios', 'Aprendizaje basado en indagación (STEAM)', 'Aprendizaje basado en problemas (ABP)', 'Aprendizaje servicio (AS)', 'Otra'];
+const METODO_CAMPO = { 'Lenguajes': METODOS[0], 'Saberes y pensamiento científico': METODOS[1], 'Ética, naturaleza y sociedades': METODOS[2], 'De lo humano y lo comunitario': METODOS[3] };
+const ESCENARIOS = ['Aula', 'Escuela', 'Comunidad'];
+const INSTRUMENTOS = ['Lista de cotejo', 'Rúbrica', 'Registro anecdótico', 'Diario de la educadora', 'Portafolio de evidencias', 'Escala estimativa', 'Guía de observación'];
+const P = { plan: null, id: null, dirty: false, contenidos: null };
+
+function planVacia() {
+  return { titulo: '', jardin: '', cct: '', grado: '2°', grupo: '', educadora: (S.profile && S.profile.nombre) || '', inicio: '', fin: '', duracion: '', escenario: 'Aula', problematica: '', proposito: '',
+    sel: {}, ejes: [], metodologia: '', metodoManual: false, sesiones: [{ titulo: 'Sesión 1', fecha: '', inicio: '', desarrollo: '', cierre: '', recursos: '' }],
+    evaluacion: '', instrumentos: [], observaciones: '' };
+}
+async function loadContenidos() {
+  if (!P.contenidos) P.contenidos = must(await sb.from('contenidos').select('*').order('orden').order('created_at')) || [];
+  return P.contenidos;
+}
+const pdaLines = (c, g) => (c['pda' + ({ '1°': 1, '2°': 2, '3°': 3 }[g] || 2)] || '').split('\n').map(x => x.trim()).filter(Boolean);
+function sugerirMetodo() {
+  const p = P.plan; if (p.metodoManual) return;
+  const first = P.contenidos.find(c => p.sel[c.id]);
+  p.metodologia = first ? METODO_CAMPO[first.campo] || '' : '';
+}
+function needPlanAccess() {
+  const p = needUser(); if (!p) return null;
+  if (!hasAccess(p)) { go('#/panel/suscripcion'); toast('Necesitas una suscripción activa para usar el generador.'); return null; }
+  return p;
+}
+
+async function pgPlaneaciones() {
+  const p = needUser(); if (!p) return '';
+  const list = must(await sb.from('planeaciones').select('id, titulo, datos, updated_at').order('updated_at', { ascending: false })) || [];
+  const rows = list.map(x => `<li><span class="stack" style="gap:2px"><b>${esc(x.titulo || 'Planeación sin título')}</b><span class="muted">${esc([x.datos.grado, x.datos.grupo && 'Grupo ' + x.datos.grupo, x.datos.inicio && fmtDate(x.datos.inicio + 'T12:00:00')].filter(Boolean).join(' · '))} · Editada ${fmtDate(x.updated_at)}</span></span>
+<span class="row" style="gap:8px"><a class="btn btn-o btn-sm" href="#/panel/planeacion/${x.id}">Editar</a><button class="btn btn-o btn-sm" data-act="plPdf" data-id="${x.id}">PDF</button><button class="btn btn-o btn-sm" data-act="plDup" data-id="${x.id}">Duplicar</button><button class="btn btn-r btn-sm" data-act="plDel" data-id="${x.id}">Eliminar</button></span></li>`).join('');
+  return shell('Herramientas', `${title('Mis planeaciones', 'Arma, guarda y descarga tus planeaciones.', hasAccess(p) ? '<a class="btn btn-y" href="#/panel/planeacion/nueva">Nueva planeación</a>' : '<a class="btn btn-y" href="#/panel/suscripcion">Elegir plan</a>')}
+${hasAccess(p) ? '' : subBanner(p)}
+${list.length ? `<section class="card"><ul class="list">${rows}</ul></section>` : `<p class="empty">Todavía no tienes planeaciones. ${hasAccess(p) ? '<a href="#/panel/planeacion/nueva">Crea la primera</a>.' : ''}</p>`}`);
+}
+
+async function pgPlaneacion(id) {
+  const p = needPlanAccess(); if (!p) return '';
+  await loadContenidos();
+  if (P.id !== id || !P.plan) {
+    if (id === 'nueva') { P.plan = planVacia(); P.id = 'nueva'; }
+    else {
+      const row = (await sb.from('planeaciones').select('*').eq('id', id).single()).data;
+      if (!row) return shell('Herramientas', '<p class="empty">No se encontró la planeación.</p>');
+      P.plan = Object.assign(planVacia(), row.datos, { titulo: row.titulo }); P.id = id;
+    }
+    P.dirty = false;
+  }
+  return shell('Herramientas', planEditor());
+}
+function fld(key, label, type = 'text', extra = '') {
+  const v = P.plan[key] || '';
+  return `<div class="field"><label for="pf-${key}">${label}</label>${type === 'textarea' ? `<textarea id="pf-${key}" class="inp" data-pf="${key}" ${extra}>${esc(v)}</textarea>` : `<input id="pf-${key}" class="inp" type="${type}" data-pf="${key}" value="${esc(v)}" ${extra}>`}</div>`;
+}
+function planEditor() {
+  const pl = P.plan, g = pl.grado;
+  const porCampo = CAMPOS.map(campo => {
+    const cs = P.contenidos.filter(c => c.campo === campo); if (!cs.length) return '';
+    const nsel = cs.filter(c => pl.sel[c.id]).length;
+    return `<details${nsel ? ' open' : ''} style="background:#fff;border:1px solid var(--linea);border-radius:8px;padding:14px 18px"><summary>${campo}${nsel ? ` <span class="tag tag-b" style="margin-left:6px">${nsel}</span>` : ''}</summary>
+<div class="stack" style="gap:14px;margin-top:14px">${cs.map(c => {
+      const on = !!pl.sel[c.id];
+      const pdas = pdaLines(c, g);
+      const chosen = on ? (pl.sel[c.id].pdas || pdas) : [];
+      return `<div style="border-top:1px solid var(--linea);padding-top:12px"><label class="chk" style="align-items:flex-start"><input type="checkbox" data-act="plCont" data-id="${c.id}"${on ? ' checked' : ''}><span style="font-weight:700">${esc(c.contenido)}</span></label>
+${on ? `<div class="stack" style="gap:6px;margin:6px 0 0 32px"><p class="lbl-t">PDA de ${g}</p>${pdas.map((t, i) => `<label class="chk" style="align-items:flex-start;min-height:36px"><input type="checkbox" data-act="plPda" data-id="${c.id}" data-i="${i}"${chosen.includes(t) ? ' checked' : ''}><span>${esc(t)}</span></label>`).join('') || '<p class="muted">Sin PDA para este grado.</p>'}</div>` : ''}</div>`;
+    }).join('')}</div></details>`;
+  }).join('') || '<p class="empty">Todavía no hay contenidos cargados. Pide al administrador que los cargue.</p>';
+  const sesiones = pl.sesiones.map((s, i) => `<div class="card" style="gap:12px;box-shadow:none;border:1px solid var(--linea)">
+<div class="row between"><h3>Sesión ${i + 1}</h3><div class="row" style="gap:6px"><button type="button" class="btn btn-o btn-sm" data-act="plSesMove" data-i="${i}" data-d="-1"${i === 0 ? ' disabled' : ''} aria-label="Subir sesión">↑</button><button type="button" class="btn btn-o btn-sm" data-act="plSesMove" data-i="${i}" data-d="1"${i === pl.sesiones.length - 1 ? ' disabled' : ''} aria-label="Bajar sesión">↓</button><button type="button" class="btn btn-r btn-sm" data-act="plSesDel" data-i="${i}"${pl.sesiones.length === 1 ? ' disabled' : ''}>Quitar</button></div></div>
+<div class="grid-s"><div class="field"><label for="ps-t${i}">Nombre de la sesión</label><input id="ps-t${i}" class="inp" data-ps="${i}" data-k="titulo" value="${esc(s.titulo)}"></div><div class="field"><label for="ps-f${i}">Fecha</label><input id="ps-f${i}" class="inp" type="date" data-ps="${i}" data-k="fecha" value="${esc(s.fecha)}"></div></div>
+${['inicio', 'desarrollo', 'cierre', 'recursos'].map(k => `<div class="field"><label for="ps-${k}${i}">${{ inicio: 'Inicio', desarrollo: 'Desarrollo', cierre: 'Cierre', recursos: 'Recursos y materiales' }[k]}</label><textarea id="ps-${k}${i}" class="inp" data-ps="${i}" data-k="${k}" style="min-height:${k === 'desarrollo' ? 140 : 90}px">${esc(s[k])}</textarea></div>`).join('')}</div>`).join('');
+  const chk = (list, arr, act) => `<div class="stack" style="gap:2px">${list.map(x => `<label class="chk"><input type="checkbox" data-act="${act}" data-v="${esc(x)}"${arr.includes(x) ? ' checked' : ''}><span>${esc(x)}</span></label>`).join('')}</div>`;
+  return `${title(P.id === 'nueva' ? 'Nueva planeación' : 'Editar planeación', 'Llena cada apartado; puedes guardar y seguir después.', '<a class="btn btn-o" href="#/panel/planeaciones">Mis planeaciones</a>')}
+<div class="card" style="padding:28px;gap:18px"><h2>1. Datos generales</h2>${fld('titulo', 'Nombre del proyecto o planeación', 'text', 'maxlength="200" placeholder="Ej. Conozco mi comunidad"')}
+<div class="grid-s">${fld('jardin', 'Jardín de Niños', 'text', 'maxlength="150"')}${fld('cct', 'CCT', 'text', 'maxlength="20"')}
+<div class="field"><label for="pf-grado">Grado</label><select id="pf-grado" class="inp" data-pf="grado">${opt(GRADOS, g)}</select></div>${fld('grupo', 'Grupo', 'text', 'maxlength="20"')}</div>
+<div class="grid-s">${fld('educadora', 'Educadora', 'text', 'maxlength="120"')}${fld('inicio', 'Fecha de inicio', 'date')}${fld('fin', 'Fecha de término', 'date')}${fld('duracion', 'Duración', 'text', 'maxlength="60" placeholder="Ej. 2 semanas"')}</div>
+<div class="grid-s"><div class="field"><label for="pf-escenario">Escenario</label><select id="pf-escenario" class="inp" data-pf="escenario">${opt(ESCENARIOS, pl.escenario)}</select></div></div>
+${fld('problematica', 'Problemática o situación del grupo', 'textarea')}${fld('proposito', 'Propósito', 'textarea')}</div>
+<div class="card" style="padding:28px;gap:18px"><h2>2. Campos, contenidos y PDA</h2><p class="muted">Elige uno o varios contenidos de cualquier campo formativo. Los PDA se muestran según el grado (${g}); desmarca los que no vayas a trabajar.</p>${porCampo}</div>
+<div class="card" style="padding:28px;gap:18px"><h2>3. Ejes articuladores y metodología</h2><p class="lbl-t">Ejes articuladores</p>${chk(EJES, pl.ejes, 'plEje')}
+<div class="field"><label for="pf-metodologia">Metodología${pl.metodoManual ? '' : ' (sugerida según el campo)'}</label><select id="pf-metodologia" class="inp" data-pf="metodologia"><option value="">Selecciona una opción</option>${opt(METODOS, pl.metodologia)}</select></div></div>
+<div class="card" style="padding:28px;gap:18px"><h2>4. Secuencia de actividades</h2>${sesiones}<button type="button" class="btn btn-o" data-act="plSesAdd" style="align-self:flex-start">+ Agregar sesión</button></div>
+<div class="card" style="padding:28px;gap:18px"><h2>5. Evaluación</h2>${fld('evaluacion', '¿Qué y cómo vas a evaluar?', 'textarea')}<p class="lbl-t">Instrumentos</p>${chk(INSTRUMENTOS, pl.instrumentos, 'plInst')}${fld('observaciones', 'Observaciones', 'textarea')}</div>
+<div class="row" style="position:sticky;bottom:12px;z-index:5;background:rgba(251,249,246,.95);padding:12px;border-radius:32px;box-shadow:var(--sombra-suave)"><button class="btn btn-y" data-act="plSave">Guardar</button><button class="btn btn-o" data-act="plSavePdf">Guardar y descargar PDF</button><span class="muted" id="pl-estado">${P.dirty ? 'Cambios sin guardar' : ''}</span></div>`;
+}
+function planMarkDirty() { P.dirty = true; const e = document.getElementById('pl-estado'); if (e) e.textContent = 'Cambios sin guardar'; }
+function planInput(t) {
+  const pl = P.plan; if (!pl) return;
+  if (t.dataset.pf !== undefined) {
+    const k = t.dataset.pf; pl[k] = t.value;
+    if (k === 'metodologia') pl.metodoManual = true;
+    if (k === 'grado') { Object.keys(pl.sel).forEach(id => { pl.sel[id].pdas = null; }); planMarkDirty(); return rerenderPlan(); }
+  } else if (t.dataset.ps !== undefined) { pl.sesiones[+t.dataset.ps][t.dataset.k] = t.value; }
+  planMarkDirty();
+}
+async function rerenderPlan() { const y = window.scrollY; await render(); window.scrollTo(0, y); }
+function toggleIn(arr, v) { const i = arr.indexOf(v); i >= 0 ? arr.splice(i, 1) : arr.push(v); }
+async function planClick(el, act, id) {
+  const pl = P.plan;
+  if (act === 'plCont') { if (pl.sel[id]) delete pl.sel[id]; else pl.sel[id] = { pdas: null }; sugerirMetodo(); planMarkDirty(); return rerenderPlan(); }
+  if (act === 'plPda') { const c = P.contenidos.find(x => x.id === id), all = pdaLines(c, pl.grado), t = all[+el.dataset.i]; const cur = (pl.sel[id].pdas || all).slice(); toggleIn(cur, t); pl.sel[id].pdas = cur; return planMarkDirty(); }
+  if (act === 'plEje') { toggleIn(pl.ejes, el.dataset.v); return planMarkDirty(); }
+  if (act === 'plInst') { toggleIn(pl.instrumentos, el.dataset.v); return planMarkDirty(); }
+  if (act === 'plSesAdd') { pl.sesiones.push({ titulo: 'Sesión ' + (pl.sesiones.length + 1), fecha: '', inicio: '', desarrollo: '', cierre: '', recursos: '' }); planMarkDirty(); return rerenderPlan(); }
+  if (act === 'plSesDel') { if (!window.confirm('¿Quitar esta sesión?')) return; pl.sesiones.splice(+el.dataset.i, 1); planMarkDirty(); return rerenderPlan(); }
+  if (act === 'plSesMove') { const i = +el.dataset.i, j = i + +el.dataset.d; [pl.sesiones[i], pl.sesiones[j]] = [pl.sesiones[j], pl.sesiones[i]]; planMarkDirty(); return rerenderPlan(); }
+  if (act === 'plSave' || act === 'plSavePdf') { el.disabled = true; try { await planGuardar(); if (act === 'plSavePdf') await planPdf(P.plan); } finally { el.disabled = false; } return; }
+  if (act === 'plPdf') { const row = (await sb.from('planeaciones').select('*').eq('id', id).single()).data; if (row) { await loadContenidos(); await planPdf(Object.assign(planVacia(), row.datos, { titulo: row.titulo })); } return; }
+  if (act === 'plDup') { if (!hasAccess(S.profile)) return go('#/panel/suscripcion'); const row = (await sb.from('planeaciones').select('*').eq('id', id).single()).data; must(await sb.from('planeaciones').insert({ titulo: (row.titulo + ' (copia)').slice(0, 200), datos: row.datos }), 'No se pudo duplicar.'); toast('Planeación duplicada.'); return render(); }
+  if (act === 'plDel') { if (!window.confirm('¿Eliminar esta planeación? No se puede deshacer.')) return; must(await sb.from('planeaciones').delete().eq('id', id), 'No se pudo eliminar.'); toast('Planeación eliminada.'); return render(); }
+}
+async function planGuardar() {
+  const pl = P.plan, titulo = (pl.titulo || '').trim().slice(0, 200) || 'Planeación sin título';
+  const datos = JSON.parse(JSON.stringify(pl)); delete datos.titulo;
+  if (P.id === 'nueva') {
+    const r = must(await sb.from('planeaciones').insert({ titulo, datos }).select('id').single(), 'No se pudo guardar. Revisa que tu suscripción esté activa.');
+    P.id = r.id; history.replaceState(null, '', location.pathname + '#/panel/planeacion/' + r.id); lastPath = '/panel/planeacion/' + r.id;
+  } else must(await sb.from('planeaciones').update({ titulo, datos, updated_at: new Date().toISOString() }).eq('id', P.id), 'No se pudo guardar.');
+  P.dirty = false; const e = document.getElementById('pl-estado'); if (e) e.textContent = 'Guardado ✓'; toast('Planeación guardada.');
+}
+function cargarScript(src) { return new Promise((res, rej) => { if (document.querySelector(`script[src="${src}"]`)) return res(); const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('No se pudo cargar el generador de PDF.')); document.head.appendChild(s); }); }
+async function planPdf(pl) {
+  toast('Preparando PDF…');
+  await cargarScript('/jspdf.min.js');
+  const { jsPDF } = window.jspdf; const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 48, CW = W - M * 2; let y = M;
+  const IND = [35, 67, 134], NAR = [180, 81, 15], TXT = [30, 37, 48];
+  const clean = s => String(s || '').replace(/[^\x09\x0A\x0D\x20-\x7E -ÿ–—‘’“”•…]/g, '');
+  const need = h => { if (y + h > H - M) { doc.addPage(); y = M; } };
+  const text = (s, { size = 10, bold = false, color = TXT, indent = 0, gap = 4 } = {}) => {
+    s = clean(s); if (!s.trim()) return;
+    doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setFontSize(size); doc.setTextColor(...color);
+    for (const par of s.split('\n')) { const lines = doc.splitTextToSize(par, CW - indent); for (const l of lines) { need(size * 1.35); doc.text(l, M + indent, y + size); y += size * 1.35; } }
+    y += gap;
+  };
+  const h2 = s => { y += 8; need(28); doc.setFillColor(...IND); doc.rect(M, y, CW, 22, 'F'); doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(255, 255, 255); doc.text(clean(s).toUpperCase(), M + 10, y + 15); y += 30; };
+  const kv = (k, v) => { if (!v) return; text(k + ': ' + v, { size: 10 }); };
+  // Encabezado
+  doc.setFillColor(251, 249, 246); doc.rect(0, 0, W, 86, 'F');
+  doc.setDrawColor(...IND); doc.setLineWidth(3); doc.line(M, 52, M + 20, 36); doc.line(M + 20, 36, M + 40, 52);
+  doc.setFillColor(127, 167, 122); doc.circle(M + 11, 58, 4, 'F'); doc.circle(M + 29, 58, 4, 'F'); doc.setFillColor(255, 196, 0); doc.circle(M + 20, 55, 4.5, 'F');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...IND); doc.text('COMUNIDAD DE APRENDIZAJE PREESCOLAR', M + 52, 44);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...NAR); doc.text('Planeación didáctica · Fase 2', M + 52, 58);
+  y = 108; text(pl.titulo || 'Planeación sin título', { size: 18, bold: true, color: IND, gap: 8 });
+  h2('1. Datos generales');
+  kv('Jardín de Niños', pl.jardin); kv('CCT', pl.cct); kv('Grado y grupo', [pl.grado, pl.grupo].filter(Boolean).join(' ')); kv('Educadora', pl.educadora);
+  kv('Periodo', [pl.inicio && fmtDate(pl.inicio + 'T12:00:00'), pl.fin && fmtDate(pl.fin + 'T12:00:00')].filter(Boolean).join(' al ')); kv('Duración', pl.duracion); kv('Escenario', pl.escenario);
+  if (pl.problematica) { text('Problemática o situación del grupo', { bold: true, color: IND, gap: 2 }); text(pl.problematica); }
+  if (pl.proposito) { text('Propósito', { bold: true, color: IND, gap: 2 }); text(pl.proposito); }
+  h2('2. Campos formativos, contenidos y PDA');
+  const sel = P.contenidos.filter(c => pl.sel[c.id]);
+  if (!sel.length) text('Sin contenidos seleccionados.', { color: [74, 86, 97] });
+  CAMPOS.forEach(campo => { const cs = sel.filter(c => c.campo === campo); if (!cs.length) return; text(campo, { size: 11, bold: true, color: NAR, gap: 2 });
+    cs.forEach(c => { text('Contenido: ' + c.contenido, { bold: true, gap: 2 }); const pd = pl.sel[c.id].pdas || pdaLines(c, pl.grado); text('PDA (' + pl.grado + '):', { size: 9.5, bold: true, color: IND, gap: 1 }); pd.forEach(t => text('•  ' + t, { size: 9.5, indent: 10, gap: 1 })); y += 6; }); });
+  h2('3. Ejes articuladores y metodología');
+  kv('Ejes articuladores', pl.ejes.join(', ') || '—'); kv('Metodología', pl.metodologia || '—');
+  h2('4. Secuencia de actividades');
+  pl.sesiones.forEach((s, i) => { need(60); text(`Sesión ${i + 1}${s.titulo && s.titulo !== 'Sesión ' + (i + 1) ? ': ' + s.titulo : ''}${s.fecha ? ' · ' + fmtDate(s.fecha + 'T12:00:00') : ''}`, { size: 11, bold: true, color: IND, gap: 2 });
+    [['Inicio', s.inicio], ['Desarrollo', s.desarrollo], ['Cierre', s.cierre], ['Recursos y materiales', s.recursos]].forEach(([k, v]) => { if (v) { text(k, { bold: true, gap: 1 }); text(v, { indent: 10 }); } }); y += 4; });
+  h2('5. Evaluación');
+  if (pl.evaluacion) text(pl.evaluacion); kv('Instrumentos', pl.instrumentos.join(', ')); if (pl.observaciones) { text('Observaciones', { bold: true, gap: 1 }); text(pl.observaciones); }
+  const n = doc.getNumberOfPages();
+  for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(74, 86, 97); doc.text('Comunidad de Aprendizaje Preescolar · Construimos juntos la escuela que soñamos.', M, H - 24); doc.text(`${i} / ${n}`, W - M, H - 24, { align: 'right' }); }
+  const name = (clean(pl.titulo) || 'planeacion').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'planeacion';
+  doc.save(name + '.pdf');
 }
 
 /* ================= RUTAS ================= */
@@ -806,7 +981,7 @@ async function render() {
     else if (seg[0] === 'registro') html = pgAcceso('registro');
     else if (seg[0] === 'revisa-tu-correo') html = pgRevisaCorreo();
     else if (seg[0] === 'nueva-contrasena') html = pgNuevaContrasena();
-    else if (seg[0] === 'panel') html = await ({ favoritos: pgFavoritos, descargas: pgDescargas, herramientas: pgHerramientas, suscripcion: pgSuscripcion }[seg[1]] || pgPanel)(params);
+    else if (seg[0] === 'panel') html = await ({ favoritos: pgFavoritos, descargas: pgDescargas, herramientas: pgHerramientas, suscripcion: pgSuscripcion, planeaciones: pgPlaneaciones, planeacion: () => pgPlaneacion(seg[2] || 'nueva') }[seg[1]] || pgPanel)(params);
     else if (seg[0] === 'admin') html = await ({ recursos: pgAdminRecursos, recurso: () => pgAdminRecurso(seg[2]), suscriptoras: pgAdminSubs, suscriptora: () => pgAdminSub(seg[2]), textos: pgAdminTextos, herramientas: pgAdminHerr }[seg[1]] || pgAdmin)();
     else html = await pgInicio();
   } catch (e) {

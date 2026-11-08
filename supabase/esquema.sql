@@ -342,3 +342,37 @@ drop policy if exists portadas_cambiar on storage.objects;
 create policy portadas_cambiar on storage.objects for update to authenticated using (bucket_id = 'portadas' and public.is_admin());
 drop policy if exists portadas_borrar on storage.objects;
 create policy portadas_borrar on storage.objects for delete to authenticated using (bucket_id = 'portadas' and public.is_admin());
+
+-- ---------- Generador de planeaciones ----------
+alter table public.contenidos add column if not exists orden integer not null default 0;
+create table if not exists public.planeaciones (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles on delete cascade default auth.uid(),
+  titulo text not null default 'Planeación sin título' check (char_length(titulo) <= 200),
+  datos jsonb not null default '{}'::jsonb check (pg_column_size(datos) <= 200000),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists planeaciones_user_idx on public.planeaciones (user_id, updated_at desc);
+alter table public.planeaciones enable row level security;
+drop policy if exists planeaciones_select on public.planeaciones;
+create policy planeaciones_select on public.planeaciones for select to authenticated using (user_id = auth.uid());
+drop policy if exists planeaciones_insert on public.planeaciones;
+create policy planeaciones_insert on public.planeaciones for insert to authenticated with check (user_id = auth.uid() and public.has_access(auth.uid()));
+drop policy if exists planeaciones_update on public.planeaciones;
+create policy planeaciones_update on public.planeaciones for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid() and public.has_access(auth.uid()));
+drop policy if exists planeaciones_delete on public.planeaciones;
+create policy planeaciones_delete on public.planeaciones for delete to authenticated using (user_id = auth.uid());
+revoke all on public.planeaciones from anon;
+revoke truncate on public.planeaciones from authenticated;
+create or replace function public.limite_planeaciones()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if (select count(*) from public.planeaciones where user_id = new.user_id) >= 500 then
+    raise exception 'Llegaste al máximo de 500 planeaciones guardadas.';
+  end if;
+  return new;
+end $$;
+revoke execute on function public.limite_planeaciones() from public, anon, authenticated;
+drop trigger if exists planeaciones_limite on public.planeaciones;
+create trigger planeaciones_limite before insert on public.planeaciones for each row execute function public.limite_planeaciones();
