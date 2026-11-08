@@ -48,7 +48,7 @@ export default async (req: Request) => {
           {
             user_id: p?.id ?? null,
             monto: inv.amount_paid / 100,
-            concepto: inv.metadata?.concepto ? String(inv.metadata.concepto) : inv.billing_reason === "subscription_cycle" ? `Renovación plan ${plan ?? ""}`.trim() : `Pago plan ${plan ?? ""}`.trim(),
+            concepto: inv.metadata?.concepto ? String(inv.metadata.concepto) : inv.billing_reason === "subscription_cycle" ? `Renovación plan ${plan ?? ""}`.trim() : inv.billing_reason === "subscription_update" ? `Cambio a plan ${plan ?? ""} (parte proporcional)`.trim() : `Pago plan ${plan ?? ""}`.trim(),
             stripe_invoice_id: inv.id,
             fecha: new Date((inv.status_transitions?.paid_at ?? inv.created) * 1000).toISOString(),
           },

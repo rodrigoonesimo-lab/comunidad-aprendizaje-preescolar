@@ -1,6 +1,7 @@
 // Cambia entre el plan Docente y el plan Autoridad Escolar (mismo periodo: mensual o anual).
 // - En la prueba gratis: el cambio es inmediato y no se cobra nada.
-// - Subir a Autoridad Escolar: se cobra hoy la diferencia del periodo y desde la siguiente renovación el precio completo.
+// - Subir a Autoridad Escolar: se cobra hoy solo la parte proporcional de la diferencia por los días que faltan
+//   del periodo, y desde la siguiente renovación el precio completo.
 // - Bajar a Docente: conserva Autoridad Escolar hasta el fin del periodo pagado; la siguiente renovación ya es Docente. Sin reembolsos.
 // Con { vista: true } solo devuelve lo que pasaría, sin cambiar nada.
 import type { Config } from "@netlify/functions"
@@ -25,7 +26,7 @@ export default async (req: Request) => {
     if (profile.blocked) return json({ error: "Tu cuenta está bloqueada." }, 403)
     if (!profile.stripe_subscription_id) return json({ error: "Todavía no tienes un plan." }, 400)
 
-    const { nivel, vista } = await req.json().catch(() => ({}))
+    const { nivel, vista, fechaProrrateo } = await req.json().catch(() => ({}))
     if (!["docente", "autoridad"].includes(nivel)) return json({ error: "Plan no válido." }, 400)
 
     const s = stripe()
@@ -53,13 +54,30 @@ export default async (req: Request) => {
     const precioDestino = await s.prices.retrieve(destino)
     const enPrueba = sub.status === "trialing"
     const sube = nivel === "autoridad"
-    const diferencia = Math.max(0, (precioDestino.unit_amount ?? 0) - (item.price.unit_amount ?? 0))
     const tipo = enPrueba ? "prueba" : sube ? "subir" : "bajar"
+    const customer = typeof sub.customer === "string" ? sub.customer : sub.customer.id
+    // La fecha del prorrateo se fija en la vista previa para que el cobro coincida con el monto mostrado.
+    const ahora = Math.floor(Date.now() / 1000)
+    const prorrateo = Number.isInteger(fechaProrrateo) && fechaProrrateo <= ahora && fechaProrrateo > ahora - 3600 ? fechaProrrateo : ahora
+
+    let monto = 0
+    if (tipo === "subir") {
+      const prev = await s.invoices.createPreview({
+        customer,
+        subscription: sub.id,
+        subscription_details: { items: [{ id: item.id, price: destino }], proration_behavior: "always_invoice", proration_date: prorrateo },
+      })
+      monto = prev.lines.data
+        .filter(l => (l as Stripe.InvoiceLineItem & { proration?: boolean }).proration)
+        .reduce((t, l) => t + l.amount, 0)
+      monto = Math.max(0, monto)
+    }
 
     if (vista) {
       return json({
         tipo, nivel, periodo: actual.periodo,
-        monto: tipo === "subir" ? diferencia / 100 : 0,
+        monto: monto / 100,
+        fechaProrrateo: prorrateo,
         precioNuevo: (precioDestino.unit_amount ?? 0) / 100,
         fecha: enPrueba ? new Date((sub.trial_end ?? fin) * 1000).toISOString() : finIso,
       })
@@ -79,40 +97,19 @@ export default async (req: Request) => {
         metadata: { ...sub.metadata, nivel },
       })
     } else if (tipo === "subir") {
-      // 1) Se cobra la diferencia ahora mismo con la tarjeta del plan.
-      const pm = typeof sub.default_payment_method === "string" ? sub.default_payment_method : sub.default_payment_method?.id
-      const concepto = `Cambio a plan Autoridad Escolar ${actual.periodo} (diferencia)`
-      const inv = await s.invoices.create({
-        customer: typeof sub.customer === "string" ? sub.customer : sub.customer.id,
-        collection_method: "charge_automatically",
-        auto_advance: false,
-        pending_invoice_items_behavior: "exclude",
-        description: concepto,
-        metadata: { user_id: profile.id, concepto },
-        ...(pm ? { default_payment_method: pm } : {}),
-      })
-      await s.invoiceItems.create({
-        customer: typeof sub.customer === "string" ? sub.customer : sub.customer.id,
-        invoice: inv.id,
-        amount: diferencia,
-        currency: precioDestino.currency,
-        description: concepto,
-      })
-      await s.invoices.finalizeInvoice(inv.id!)
+      // Se cobra al momento solo la parte proporcional; si el banco la rechaza, el plan no cambia.
       try {
-        const pagada = await s.invoices.pay(inv.id!, pm ? { payment_method: pm } : {})
-        if (pagada.status !== "paid") throw new Error("no pagada")
+        await s.subscriptions.update(sub.id, {
+          items: [{ id: item.id, price: destino }],
+          proration_behavior: "always_invoice",
+          proration_date: prorrateo,
+          payment_behavior: "error_if_incomplete",
+          metadata: { ...sub.metadata, nivel },
+        })
       } catch (e) {
         console.error(e)
-        await s.invoices.voidInvoice(inv.id!).catch(() => {})
-        return json({ error: "Tu banco rechazó el cobro de la diferencia. Tu plan no cambió. Revisa tu tarjeta e intenta de nuevo." }, 402)
+        return json({ error: "Tu banco rechazó el cobro. Tu plan no cambió. Revisa tu tarjeta e intenta de nuevo." }, 402)
       }
-      // 2) Ya pagado, se cambia el plan sin prorrateo: la siguiente renovación es el precio completo.
-      await s.subscriptions.update(sub.id, {
-        items: [{ id: item.id, price: destino }],
-        proration_behavior: "none",
-        metadata: { ...sub.metadata, nivel },
-      })
     } else {
       // Bajar: se programa para la siguiente renovación.
       const sch = await s.subscriptionSchedules.create({ from_subscription: sub.id })
