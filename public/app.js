@@ -11,7 +11,8 @@ const CATS = ['Planeación y proyectos', 'Evaluación y seguimiento', 'Material 
 const CAMPOS = ['Lenguajes', 'Saberes y pensamiento científico', 'Ética, naturaleza y sociedades', 'De lo humano y lo comunitario'];
 const GRADOS = ['1°', '2°', '3°'];
 const TOOLS = [
-  ['spark', 'Generador de planeaciones', 'Elige campo formativo, contenido y PDA, y arma tu proyecto.'],
+  ['spark', 'Generador de planeaciones', 'Elige campo formativo, contenido y PDA, y arma tu proyecto.', '', '#/panel/planeaciones'],
+  ['eval', 'Contenidos y PDA Fase 2', 'Guía de observación por grado con indicadores, valoración y evidencias fotográficas.', '', '#/panel/guias'],
   ['eye', 'Guía de visita al aula', 'Registra lo observado en cada visita y la retroalimentación a la docente.', 'autoridad'],
   ['report', 'Sistematización de resultados', 'Concentra la información de tus visitas y grupos para tomar decisiones.', 'autoridad'],
   ['obs', 'Registro de observaciones', 'Notas rápidas por alumno desde el celular.'],
@@ -382,7 +383,7 @@ async function pgPanel(params) {
     .filter(a => a.destino === 'Todas las suscriptoras' || (a.destino === 'Solo en prueba' && st.key === 'prueba') || (a.destino === 'Solo plan mensual' && p.plan === 'mensual') || (a.destino === 'Solo plan anual' && p.plan === 'anual') || (a.destino === 'Solo plan Docente' && nivelDe(p) === 'docente') || (a.destino === 'Solo plan Autoridad Escolar' && nivelDe(p) === 'autoridad')).slice(0, 3);
   const dls = await myDescargas(5);
   const byId = id => S.resources.find(r => r.id === id);
-  const tools = TOOLS.filter(x => x[3] !== 'autoridad' || nivelDe(p) === 'autoridad').map(([i, t], n) => `<a class="card" href="${n === 0 ? '#/panel/planeaciones' : '#/panel/herramientas'}" style="text-decoration:none;padding:18px;gap:10px"><div class="ic" style="background:#E4EAF5;width:44px;height:44px">${ico(i, '#234386', 22)}</div><span style="font-weight:700;color:var(--tinta)">${t}</span></a>`).join('');
+  const tools = TOOLS.filter(x => x[3] !== 'autoridad' || nivelDe(p) === 'autoridad').map(([i, t, , , ruta]) => `<a class="card" href="${ruta || '#/panel/herramientas'}" style="text-decoration:none;padding:18px;gap:10px"><div class="ic" style="background:#E4EAF5;width:44px;height:44px">${ico(i, '#234386', 22)}</div><span style="font-weight:700;color:var(--tinta)">${t}</span></a>`).join('');
   const nuevos = publicRes().filter(r => r.nuevo_mes).slice(0, 4).map(r => resCard(r, 'nuevo')).join('') || '<p class="empty">Este mes aún no hay recursos nuevos.</p>';
   const favs = (p.favoritos || []).map(byId).filter(Boolean).slice(0, 5);
   const av = avisos.map(a => `<section class="notice b"><div class="stack" style="gap:4px"><p style="font-weight:800">${esc(a.titulo)}</p><p>${esc(a.mensaje)}</p></div><button class="btn btn-o btn-sm" data-act="closeAviso" data-id="${a.id}">Cerrar aviso</button></section>`).join('');
@@ -417,8 +418,8 @@ async function pgDescargas() {
 }
 function pgHerramientas() {
   const p = needUser(); if (!p) return '';
-  return shell('Herramientas', `${title('Herramientas en línea', 'El generador de planeaciones ya está listo. Te avisaremos en tu panel cuando las demás herramientas estén disponibles.')}
-<div class="grid">${TOOLS.map(([i, t, d, nv], n) => `<article class="card"><div class="ic" style="background:#E4EAF5">${ico(i, '#234386')}</div><h3>${t}</h3><p style="color:var(--tinta-suave)">${d}</p>${nv === 'autoridad' ? '<span class="tag tag-b" style="align-self:flex-start">Plan Autoridad Escolar</span>' : ''}${n === 0 ? '<a class="btn btn-y" href="#/panel/planeaciones" style="align-self:flex-start;margin-top:auto">Abrir</a>' : '<span class="tag tag-a" style="margin-top:auto;align-self:flex-start">Próximamente</span>'}</article>`).join('')}</div>`);
+  return shell('Herramientas', `${title('Herramientas en línea', 'El generador de planeaciones y la guía de Contenidos y PDA Fase 2 ya están listos. Te avisaremos en tu panel cuando las demás herramientas estén disponibles.')}
+<div class="grid">${TOOLS.map(([i, t, d, nv, ruta]) => `<article class="card"><div class="ic" style="background:#E4EAF5">${ico(i, '#234386')}</div><h3>${t}</h3><p style="color:var(--tinta-suave)">${d}</p>${nv === 'autoridad' ? '<span class="tag tag-b" style="align-self:flex-start">Plan Autoridad Escolar</span>' : ''}${ruta ? `<a class="btn btn-y" href="${ruta}" style="align-self:flex-start;margin-top:auto">Abrir</a>` : '<span class="tag tag-a" style="margin-top:auto;align-self:flex-start">Próximamente</span>'}</article>`).join('')}</div>`);
 }
 async function pgSuscripcion() {
   const p = needUser(); if (!p) return '';
@@ -787,6 +788,7 @@ async function onClick(ev) {
     if (act === 'closeModalBg') { if (ev.target === el) closeModal(); return; }
     if (act === 'closeModal') return closeModal();
     if (act.startsWith('pl')) return await planClick(el, act, id);
+    if (act.startsWith('gu')) return await guiaClick(el, act, id);
     if (act === 'reload') return location.reload();
     if (act === 'download') { closeModal(); return await doDownload(id); }
     if (act === 'verPortada') { const r = S.resources.find(x => x.id === id); if (!r) return; return modal(`<button type="button" class="btn btn-o btn-sm" data-act="closeModal" style="align-self:flex-end">Cerrar ✕</button><img src="${esc(coverUrl(r.cover_path))}" alt="Portada de ${esc(r.titulo)}" style="width:100%;max-height:70vh;object-fit:contain;background:#F3EBDD;border-radius:8px"><h2 style="font-size:32px">${esc(r.titulo)}</h2>${r.descripcion ? `<p style="color:var(--tinta-suave)">${esc(r.descripcion)}</p>` : ''}<div class="meta"><span>Grado: ${esc((r.grados || []).join(', '))}</span>${r.campo ? `<span>Campo: ${esc(r.campo)}</span>` : ''}<span>Formato: ${esc(r.formato)}</span></div><div class="row">${resAction(r)}</div>`); }
@@ -824,6 +826,55 @@ function onInput(ev) {
   if (t.hasAttribute('data-admq')) { admF.q = t.value; return refocus('br'); }
   if (t.hasAttribute('data-subq')) { subF.q = t.value; return refocus('bs'); }
   if (t.hasAttribute('data-herrcampo')) { herrF.campo = t.value; return render(); }
+}
+
+/* ================= CONTENIDOS Y PDA FASE 2 ================= */
+async function cargarGuiaJs() { await cargarScript('/guia-pda.js'); }
+async function pgGuias() {
+  const p = needUser(); if (!p) return '';
+  const list = must(await sb.from('guias_pda').select('id, titulo, updated_at').order('updated_at', { ascending: false })) || [];
+  const rows = list.map(x => `<li><span class="stack" style="gap:2px"><b>${esc(x.titulo || 'Guía sin título')}</b><span class="muted">Editada ${fmtDate(x.updated_at)}</span></span>
+<span class="row" style="gap:8px"><a class="btn btn-y btn-sm" href="#/panel/guia/${x.id}">Abrir</a><button class="btn btn-o btn-sm" data-act="guDup" data-id="${x.id}">Duplicar</button><button class="btn btn-r btn-sm" data-act="guDel" data-id="${x.id}">Eliminar</button></span></li>`).join('');
+  return shell('Herramientas', `${title('Contenidos y PDA Fase 2', 'Guía de observación con indicadores, registro y evidencias. Crea una guía por cada grupo o ciclo escolar.', hasAccess(p) ? '<button class="btn btn-y" data-act="guNueva">Nueva guía</button>' : '<a class="btn btn-y" href="#/panel/suscripcion">Elegir plan</a>')}
+${hasAccess(p) ? '' : subBanner(p)}
+${list.length ? `<section class="card"><ul class="list">${rows}</ul></section>` : `<p class="empty">Todavía no tienes guías. ${hasAccess(p) ? 'Pulsa “Nueva guía” para crear la primera.' : ''}</p>`}`);
+}
+async function pgGuia(id) {
+  const p = needPlanAccess(); if (!p) return '';
+  await cargarGuiaJs();
+  const row = (await sb.from('guias_pda').select('*').eq('id', id).maybeSingle()).data;
+  if (!row) return shell('Herramientas', '<p class="empty">No se encontró la guía. <a href="#/panel/guias">Volver a Mis guías</a>.</p>');
+  afterRender = () => {
+    const el = document.getElementById('guia-root');
+    window.CAPGuia.mount(el, { sb, uid: S.profile.id, toast }, row).catch(e => { console.error(e); el.innerHTML = `<p class="empty">${esc(e.message || 'No se pudo abrir la guía.')}</p>`; });
+  };
+  return shell('Herramientas', `<div class="row between"><a href="#/panel/guias" style="font-weight:700">← Mis guías</a></div><div id="guia-root"><p class="muted">Cargando la guía…</p></div>`);
+}
+async function guiaClick(el, act, id) {
+  if (act === 'guNueva') {
+    if (!hasAccess(S.profile)) return go('#/panel/suscripcion');
+    await cargarGuiaJs(); el.disabled = true;
+    try {
+      const datos = window.CAPGuia.nuevaGuia(S.profile.nombre);
+      const r = must(await sb.from('guias_pda').insert({ titulo: window.CAPGuia.tituloDe(datos.h, 1), datos }).select('id').single(), 'No se pudo crear la guía. Revisa que tu suscripción esté activa.');
+      return go('#/panel/guia/' + r.id);
+    } finally { el.disabled = false; }
+  }
+  if (act === 'guDup') {
+    if (!hasAccess(S.profile)) return go('#/panel/suscripcion');
+    const row = must(await sb.from('guias_pda').select('*').eq('id', id).single());
+    const datos = JSON.parse(JSON.stringify(row.datos || {})); Object.values(datos.d || {}).forEach(d => { delete d.f; });
+    must(await sb.from('guias_pda').insert({ titulo: (row.titulo + ' (copia)').slice(0, 200), datos }), 'No se pudo duplicar.');
+    toast('Guía duplicada. Las fotografías no se copian.'); return render();
+  }
+  if (act === 'guDel') {
+    if (!window.confirm('¿Eliminar esta guía con sus registros y fotografías? No se puede deshacer.')) return;
+    const carpeta = S.profile.id + '/' + id;
+    const { data: files } = await sb.storage.from('evidencias').list(carpeta, { limit: 1000 });
+    if (files && files.length) await sb.storage.from('evidencias').remove(files.map(f => carpeta + '/' + f.name));
+    must(await sb.from('guias_pda').delete().eq('id', id), 'No se pudo eliminar.');
+    toast('Guía eliminada.'); return render();
+  }
 }
 
 /* ================= GENERADOR DE PLANEACIONES ================= */
@@ -1005,7 +1056,7 @@ function parse() {
   (qs || '').split('&').filter(Boolean).forEach(p => { const [k, v] = p.split('='); params[k] = decodeURIComponent(v || ''); });
   return { path, params };
 }
-let lastPath = '', renderSeq = 0;
+let lastPath = '', renderSeq = 0, afterRender = null;
 async function render() {
   const seq = ++renderSeq;
   let { path, params } = parse(), anchor = null;
@@ -1020,7 +1071,7 @@ async function render() {
     else if (seg[0] === 'registro') html = pgAcceso('registro');
     else if (seg[0] === 'revisa-tu-correo') html = pgRevisaCorreo();
     else if (seg[0] === 'nueva-contrasena') html = pgNuevaContrasena();
-    else if (seg[0] === 'panel') html = await ({ favoritos: pgFavoritos, descargas: pgDescargas, herramientas: pgHerramientas, suscripcion: pgSuscripcion, planeaciones: pgPlaneaciones, planeacion: () => pgPlaneacion(seg[2] || 'nueva') }[seg[1]] || pgPanel)(params);
+    else if (seg[0] === 'panel') html = await ({ favoritos: pgFavoritos, descargas: pgDescargas, herramientas: pgHerramientas, suscripcion: pgSuscripcion, planeaciones: pgPlaneaciones, planeacion: () => pgPlaneacion(seg[2] || 'nueva'), guias: pgGuias, guia: () => pgGuia(seg[2]) }[seg[1]] || pgPanel)(params);
     else if (seg[0] === 'admin') html = await ({ recursos: pgAdminRecursos, recurso: () => pgAdminRecurso(seg[2]), suscriptoras: pgAdminSubs, suscriptora: () => pgAdminSub(seg[2]), textos: pgAdminTextos, herramientas: pgAdminHerr }[seg[1]] || pgAdmin)();
     else html = await pgInicio();
   } catch (e) {
@@ -1028,7 +1079,9 @@ async function render() {
     html = `<main class="wrap" style="padding:64px 24px"><div class="card stack"><h1 style="font-size:28px">Algo salió mal</h1><p>${esc(e.message || 'No se pudo cargar la página.')}</p><button class="btn btn-b" data-act="reload" style="align-self:flex-start">Intentar de nuevo</button></div></main>`;
   }
   if (seq !== renderSeq || html === '') return;
+  if (window.CAPGuia) window.CAPGuia.unmount();
   document.getElementById('app').innerHTML = html;
+  if (afterRender) { const fn = afterRender; afterRender = null; fn(); }
   const titles = { catalogo: 'Catálogo', acceso: 'Iniciar sesión', registro: 'Crear cuenta', panel: 'Mi panel', admin: 'Administrador' };
   document.title = (seg[0] && titles[seg[0]] ? titles[seg[0]] + ' · ' : '') + 'Comunidad de Aprendizaje Preescolar';
   if (anchor) { const el = document.getElementById(anchor); if (el) setTimeout(() => el.scrollIntoView(), 0); }
