@@ -1043,6 +1043,8 @@ async function planPdf(pl) {
     [['Inicio', s.inicio], ['Desarrollo', s.desarrollo], ['Cierre', s.cierre], ['Recursos y materiales', s.recursos]].forEach(([k, v]) => { if (v) { text(k, { bold: true, gap: 1 }); text(v, { indent: 10 }); } }); y += 4; });
   h2('5. Evaluación');
   if (pl.evaluacion) text(pl.evaluacion); kv('Instrumentos', pl.instrumentos.join(', ')); if (pl.observaciones) { text('Observaciones', { bold: true, gap: 1 }); text(pl.observaciones); }
+  need(40); y += 14; doc.setDrawColor(255, 196, 0); doc.setLineWidth(1.2); doc.line(M, y - 6, M + 170, y - 6);
+  text('Elaborado por: Comunidad de Aprendizaje Preescolar', { bold: true, color: IND });
   const n = doc.getNumberOfPages();
   for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(74, 86, 97); doc.text('Comunidad de Aprendizaje Preescolar · Construimos juntos la escuela que soñamos.', M, H - 24); doc.text(`${i} / ${n}`, W - M, H - 24, { align: 'right' }); }
   const name = (clean(pl.titulo) || 'planeacion').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'planeacion';

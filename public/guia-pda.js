@@ -6,7 +6,7 @@
 'use strict';
 
 const NOMBRE = 'Contenidos y PDA Fase 2';
-const AUTOR = 'M. en E. N. y A. Rodrigo Onesimo Pérez Rios';
+const AUTOR = 'Comunidad de Aprendizaje Preescolar';
 const MARCA = 'Comunidad de Aprendizaje Preescolar';
 const CAMPOS = { L: 'Lenguajes', S: 'Saberes y Pensamiento Científico', E: 'Ética, Naturaleza y Sociedades', H: 'De lo Humano y lo Comunitario' };
 const CORTO = { L: 'Lenguajes', S: 'Saberes y P. C.', E: 'Ética, N. y S.', H: 'De lo Humano y lo C.' };
@@ -489,7 +489,7 @@ async function exportarPdf(ev) {
       doc.text(doc.splitTextToSize(fi.docente || '—', W / 2 - M - 60)[0], W / 2 + 52, 80);
       doc.setDrawColor(...LIN); doc.setLineWidth(0.5); doc.line(M, H - 28, W - M, H - 28);
       doc.setFontSize(7.5); doc.setTextColor(...MUT);
-      doc.text(MARCA + ' · ' + fi.grado + ' grado · Generado el ' + hoy(), M, H - 16);
+      doc.text(NOMBRE + ' · ' + fi.grado + ' grado · Generado el ' + hoy(), M, H - 16);
       doc.text('Elaborado por: ' + AUTOR, W / 2, H - 16, { align: 'center' });
       doc.text('Página ' + i + ' de ' + n, W - M, H - 16, { align: 'right' });
     }
@@ -530,7 +530,7 @@ async function exportarExcel(ev) {
     };
     const pagina = (ws, titulos) => {
       ws.pageSetup = { paperSize: 1, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true, margins: { left: 0.35, right: 0.35, top: 0.45, bottom: 0.5, header: 0.2, footer: 0.25 }, printTitlesRow: titulos };
-      ws.headerFooter = { oddFooter: '&L&8' + MARCA + ' · ' + fi.grado + ' grado&C&8Elaborado por: ' + AUTOR + '&R&8Página &P de &N' };
+      ws.headerFooter = { oddFooter: '&L&8' + NOMBRE + ' · ' + fi.grado + ' grado&C&8Elaborado por: ' + AUTOR + '&R&8Página &P de &N' };
     };
     const ws = wb.addWorksheet('Contenidos y PDA', { views: [{ state: 'frozen', ySplit: 6, showGridLines: false }] });
     const cols = [['Campo formativo', 13], ['Contenido', 30], ['PDA', 34], ['Indicadores: ¿qué observar?', 36], ['Mes en el que se trabajó', 12], ['Situación o proyecto en el que se abordó el contenido', 26], ['Valoración', 13], ['Evidencias', 30]];
