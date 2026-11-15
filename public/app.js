@@ -604,6 +604,7 @@ async function pgAdminHerr() {
   const rows = list.map(c => `<tr><td>${esc(c.campo)}</td><td>${esc(c.contenido)}</td><td>${[c.pda1, c.pda2, c.pda3].filter(Boolean).length} de 3 grados</td><td><div class="row" style="gap:8px;flex-wrap:nowrap"><button class="btn btn-o btn-sm" data-act="editCont" data-id="${c.id}">Editar</button><button class="btn btn-r btn-sm" data-act="delCont" data-id="${c.id}">Quitar</button></div></td></tr>`).join('');
   const pl = plantillas.map(p => `<li><span><b>${esc(p.nombre)}</b> <span class="muted">· ${esc(p.tipo)} · ${p.criterios.split('\n').filter(Boolean).length} criterios</span></span><div class="row" style="gap:8px"><button class="btn btn-o btn-sm" data-act="editPlant" data-id="${p.id}">Editar</button><button class="btn btn-o btn-sm" data-act="dupPlant" data-id="${p.id}">Duplicar</button><button class="btn btn-r btn-sm" data-act="delPlant" data-id="${p.id}">Quitar</button></div></li>`).join('');
   return shell('Herramientas', `${title('Herramientas en línea', 'Edita las listas y plantillas que usarán las herramientas.')}
+<section class="card" style="padding:28px;gap:14px"><h2 style="font-size:26px">Probar herramientas</h2><p class="muted">Ábrelas como las ve una docente. Lo que guardes aquí queda en tu cuenta de administrador.</p><div class="row"><a class="btn btn-y" href="#/panel/guias">Contenidos y PDA Fase 2</a></div></section>
 <section class="card" style="padding:28px;gap:18px"><div class="row between"><h2 style="font-size:26px">Contenidos y PDA del generador</h2><div class="row">${contenidos.length ? '' : '<button class="btn btn-b" data-act="importFase2">Cargar programa oficial Fase 2</button>'}<button class="btn btn-y" data-act="editCont" data-id="nuevo">Agregar contenido</button></div></div>${contenidos.length ? `<p class="muted">${contenidos.length} contenidos cargados.</p>` : '<p class="notice b" style="padding:12px 16px">Puedes cargar de una vez los 34 contenidos y sus PDA de 1°, 2° y 3° del Programa Sintético de la Fase 2.</p>'}
 <div class="field" style="max-width:420px"><label for="hc">Campo formativo</label><select id="hc" class="inp" data-herrcampo>${opt(['Todos', ...CAMPOS], herrF.campo)}</select></div>
 <div class="tbox"><table class="tbl"><thead><tr><th>Campo formativo</th><th>Contenido</th><th>PDA</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="4">Aún no cargas contenidos. Agrega los del programa sintético de la Fase 2.</td></tr>'}</tbody></table></div></section>
@@ -830,25 +831,31 @@ function onInput(ev) {
 
 /* ================= CONTENIDOS Y PDA FASE 2 ================= */
 async function cargarGuiaJs() { await cargarScript('/guia-pda.js'); }
+// El administrador también puede abrir la herramienta para probarla.
+function needGuiaUser(conPlan) {
+  const p = S.profile; if (!p) { go('#/acceso'); return null; }
+  if (isAdmin(p)) return p;
+  return conPlan ? needPlanAccess() : needUser();
+}
 async function pgGuias() {
-  const p = needUser(); if (!p) return '';
+  const p = needGuiaUser(false); if (!p) return '';
   const list = must(await sb.from('guias_pda').select('id, titulo, updated_at').order('updated_at', { ascending: false })) || [];
   const rows = list.map(x => `<li><span class="stack" style="gap:2px"><b>${esc(x.titulo || 'Guía sin título')}</b><span class="muted">Editada ${fmtDate(x.updated_at)}</span></span>
 <span class="row" style="gap:8px"><a class="btn btn-y btn-sm" href="#/panel/guia/${x.id}">Abrir</a><button class="btn btn-o btn-sm" data-act="guDup" data-id="${x.id}">Duplicar</button><button class="btn btn-r btn-sm" data-act="guDel" data-id="${x.id}">Eliminar</button></span></li>`).join('');
   return shell('Herramientas', `${title('Contenidos y PDA Fase 2', 'Guía de observación con indicadores, registro y evidencias. Crea una guía por cada grupo o ciclo escolar.', hasAccess(p) ? '<button class="btn btn-y" data-act="guNueva">Nueva guía</button>' : '<a class="btn btn-y" href="#/panel/suscripcion">Elegir plan</a>')}
 ${hasAccess(p) ? '' : subBanner(p)}
-${list.length ? `<section class="card"><ul class="list">${rows}</ul></section>` : `<p class="empty">Todavía no tienes guías. ${hasAccess(p) ? 'Pulsa “Nueva guía” para crear la primera.' : ''}</p>`}`);
+${list.length ? `<section class="card"><ul class="list">${rows}</ul></section>` : `<p class="empty">Todavía no tienes guías. ${hasAccess(p) ? 'Pulsa “Nueva guía” para crear la primera.' : ''}</p>`}`, isAdmin(p));
 }
 async function pgGuia(id) {
-  const p = needPlanAccess(); if (!p) return '';
+  const p = needGuiaUser(true); if (!p) return '';
   await cargarGuiaJs();
   const row = (await sb.from('guias_pda').select('*').eq('id', id).maybeSingle()).data;
-  if (!row) return shell('Herramientas', '<p class="empty">No se encontró la guía. <a href="#/panel/guias">Volver a Mis guías</a>.</p>');
+  if (!row) return shell('Herramientas', '<p class="empty">No se encontró la guía. <a href="#/panel/guias">Volver a Mis guías</a>.</p>', isAdmin(p));
   afterRender = () => {
     const el = document.getElementById('guia-root');
     window.CAPGuia.mount(el, { sb, uid: S.profile.id, toast }, row).catch(e => { console.error(e); el.innerHTML = `<p class="empty">${esc(e.message || 'No se pudo abrir la guía.')}</p>`; });
   };
-  return shell('Herramientas', `<div class="row between"><a href="#/panel/guias" style="font-weight:700">← Mis guías</a></div><div id="guia-root"><p class="muted">Cargando la guía…</p></div>`);
+  return shell('Herramientas', `<div class="row between"><a href="#/panel/guias" style="font-weight:700">← Mis guías</a></div><div id="guia-root"><p class="muted">Cargando la guía…</p></div>`, isAdmin(p));
 }
 async function guiaClick(el, act, id) {
   if (act === 'guNueva') {
