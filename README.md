@@ -16,6 +16,9 @@ Elaborado por: M. en E. N. y A. Rodrigo Onesimo Pérez Rios
   - `stripe-webhook`: recibe los avisos de pago de Stripe.
   - `admin-cortesia`: da días de cortesía.
 - `supabase/esquema.sql`: tablas, reglas de seguridad y almacenamiento. Se ejecuta una vez en el SQL Editor de Supabase.
+- `supabase/migr_guias_pda.sql`: tabla `guias_pda` y almacenamiento privado `evidencias` de la herramienta Contenidos y PDA Fase 2 (ya aplicado).
+- `public/guia-pda.js` y `public/datos/pda-indicadores.json`: herramienta Contenidos y PDA Fase 2 (guía de observación con indicadores, valoración, evidencias y exportación a PDF y Excel).
+- `public/vendor/`: bibliotecas locales para exportar (jsPDF-AutoTable y ExcelJS).
 
 ## Variables de entorno en Netlify
 
